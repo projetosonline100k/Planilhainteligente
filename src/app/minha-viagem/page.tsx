@@ -7,8 +7,8 @@ export const metadata: Metadata = {
 
 export default function PaginaMinhaViagem() {
   return (
-    <main className="min-h-screen bg-slate-100 flex items-start justify-center px-4 py-10">
-      <div className="w-full max-w-sm">
+    <main className="min-h-screen w-full overflow-x-hidden bg-slate-100 flex items-start justify-center px-3 py-6 sm:px-4 sm:py-10">
+      <div className="w-full max-w-sm min-w-0">
         <div className="rounded-3xl bg-white shadow-xl overflow-hidden">
           <MinhaViagem />
         </div>

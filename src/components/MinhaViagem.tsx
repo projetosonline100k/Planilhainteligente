@@ -622,7 +622,7 @@ export default function MinhaViagem() {
   ];
 
   return (
-    <div className="flex flex-col">
+    <div className="flex w-full min-w-0 flex-col overflow-x-hidden">
 
       {modalCapitalAberto && (
         <ModalAdicionarCapital
@@ -644,7 +644,7 @@ export default function MinhaViagem() {
       )}
 
       {/* Conteúdo rolável */}
-      <div className="px-5 pt-6 pb-4 space-y-4">
+      <div className="min-w-0 px-5 pt-6 pb-4 space-y-4">
         {erro && (
           <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">
             {erro}
@@ -652,7 +652,7 @@ export default function MinhaViagem() {
         )}
 
         {/* 1 — Header */}
-        <div className="flex items-start justify-between">
+        <div className="flex min-w-0 items-start justify-between gap-3 overflow-hidden">
           <div className="flex items-start gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl shrink-0">✈️</div>
             <div>
@@ -666,7 +666,7 @@ export default function MinhaViagem() {
         </div>
 
         {/* 2 — Próxima viagem */}
-        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
+        <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-[10px] uppercase tracking-widest text-gray-400">Próxima viagem</p>
@@ -691,13 +691,13 @@ export default function MinhaViagem() {
         </div>
 
         {/* 3 — Resumo do orçamento */}
-        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
+        <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <p className="text-[10px] uppercase tracking-widest text-gray-400">Resumo do orçamento</p>
             <Link href="/diagnostico?editar=1" className="text-xs text-blue-500 hover:text-blue-600">Editar</Link>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="grid min-w-0 grid-cols-3 gap-2 mb-4">
             <div>
               <p className="text-[10px] text-gray-400 leading-tight">Orçamento total</p>
               <p className="text-sm font-bold text-gray-900 mt-0.5">{moeda(plano.custoTotal)}</p>
@@ -714,7 +714,7 @@ export default function MinhaViagem() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <AnelProgresso percentual={percentualReservado} consegue={plano.consegueViajarNaData} />
             <div className="space-y-2.5 flex-1 min-w-0">
               <LegendaItem cor="bg-blue-500"  label="Orçamento total" valor={moeda(plano.custoTotal)} />
@@ -725,9 +725,9 @@ export default function MinhaViagem() {
         </div>
 
         {/* 4 — Custos por categoria */}
-        <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
+        <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-3">Custos por categoria</p>
-          <div className="flex gap-3 overflow-x-auto -mx-4 px-4 pb-1">
+          <div className="flex max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-1">
             {categorias.map((cat) => (
               <CardCategoria key={cat.nome} {...cat} />
             ))}

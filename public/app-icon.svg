@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Planejador de viagens">
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+  <circle cx="372" cy="140" r="78" fill="#38bdf8" opacity="0.95"/>
+  <path d="M126 326c86-78 173-135 260-172" fill="none" stroke="#dbeafe" stroke-width="22" stroke-linecap="round" stroke-dasharray="2 42"/>
+  <g transform="translate(102 160) rotate(-16 154 128)">
+    <path d="M82 164 28 242c-7 10 4 23 15 18l92-43 86 76c9 8 23-1 19-13l-35-108 93-62c10-7 5-23-7-23l-112 2-36-106c-4-12-21-11-24 2l-29 113-116 12c-12 1-16 18-5 24l103 30Z" fill="#ffffff"/>
+    <path d="M108 155 256 86 141 191l42 84-75-68-85 40 55-78-96-55 107-10 27-107 37 104 116-2-97 64 33 103-79-70Z" fill="#bfdbfe"/>
+    <path d="M256 86 141 191l42 84-75-68" fill="none" stroke="#1d4ed8" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <path d="M120 386h272" stroke="#ffffff" stroke-width="24" stroke-linecap="round" opacity="0.9"/>
+  <path d="M158 424h196" stroke="#bfdbfe" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+</svg>

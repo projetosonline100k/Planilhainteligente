@@ -25,6 +25,16 @@ function moeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+function formatarNumero(valor: number): string {
+  if (valor <= 0) return "";
+  return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(valor);
+}
+
+function parseNumeroFormatado(valor: string): number {
+  const digitos = valor.replace(/\D/g, "");
+  return digitos ? Number(digitos) : 0;
+}
+
 function formatarTempo(plano: { diasAteViagem: number; mesesAteViagem: number }): string {
   if (plano.diasAteViagem < 30) {
     const d = plano.diasAteViagem;
@@ -73,7 +83,7 @@ function InputMoeda({
   label: string;
   hint?: string;
   value: number;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange: (valor: number) => void;
 }) {
   return (
     <div>
@@ -86,12 +96,12 @@ function InputMoeda({
         <input
           id={id}
           name={id}
-          type="number"
-          min={0}
-          value={value === 0 ? "" : value}
-          onChange={onChange}
+          type="text"
+          inputMode="numeric"
+          value={formatarNumero(value)}
+          onChange={(e) => onChange(parseNumeroFormatado(e.target.value))}
           placeholder="0"
-          className="w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-3.5 text-sm text-gray-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
+          className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-3.5 text-base text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
         />
       </div>
     </div>
@@ -133,6 +143,13 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
     setDados((prev) => ({
       ...prev,
       [name]: type === "number" || type === "range" ? Number(value) : value,
+    }));
+  }
+
+  function handleValorMoeda(campo: keyof DiagnosticoViagem, valor: number) {
+    setDados((prev) => ({
+      ...prev,
+      [campo]: valor,
     }));
   }
 
@@ -198,12 +215,12 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
           placeholder="Ex: Maldivas, Paris, Cancún..."
           value={dados.destino}
           onChange={handleChange}
-          className="w-full rounded-xl border border-gray-200 px-3.5 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
+          className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
         />
       </div>
 
       {/* Datas */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label htmlFor="dataIda" className="block text-xs text-gray-500 mb-1">
             Data de ida
@@ -214,7 +231,7 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
             type="date"
             value={dados.dataIda}
             onChange={handleChange}
-            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
+            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-base text-gray-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
           />
         </div>
         <div>
@@ -227,7 +244,7 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
             type="date"
             value={dados.dataVolta}
             onChange={handleChange}
-            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
+            className="w-full rounded-xl border border-gray-200 px-3 py-3 text-base text-gray-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
           />
         </div>
       </div>
@@ -246,25 +263,25 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
           label="- Qual o valor da sua passagem?"
           hint="Ainda não comprou? Coloque uma estimativa."
           value={dados.valorPassagem}
-          onChange={handleChange}
+          onChange={(valor) => handleValorMoeda("valorPassagem", valor)}
         />
         <InputMoeda
           id="valorHospedagem"
           label="- Qual o valor da hospedagem?"
           value={dados.valorHospedagem}
-          onChange={handleChange}
+          onChange={(valor) => handleValorMoeda("valorHospedagem", valor)}
         />
         <InputMoeda
           id="valorAlimentacao"
           label="- Quanto vai gastar em alimentação?"
           value={dados.valorAlimentacao}
-          onChange={handleChange}
+          onChange={(valor) => handleValorMoeda("valorAlimentacao", valor)}
         />
         <InputMoeda
           id="valorPasseios"
           label="- Quanto vai gastar em passeios?"
           value={dados.valorPasseios}
-          onChange={handleChange}
+          onChange={(valor) => handleValorMoeda("valorPasseios", valor)}
         />
       </div>
 

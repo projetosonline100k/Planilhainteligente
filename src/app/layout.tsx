@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import PWARegister from "@/components/PWARegister";
 import "./globals.css";
 
@@ -54,6 +55,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col overflow-x-hidden">
         {children}
         <PWARegister />
+        <PWAInstallPrompt />
       </body>
     </html>
   );

@@ -105,10 +105,10 @@ function CardCategoria({
   const percentual = meta > 0 ? Math.min(100, (reservado / meta) * 100) : 0;
 
   return (
-    <div className="min-w-[96px] shrink-0 rounded-xl border border-gray-100 bg-white p-3 flex flex-col gap-1.5">
+    <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-3 flex flex-col gap-1.5">
       <span className="text-2xl leading-none">{emoji}</span>
       <div>
-        <p className="text-xs text-gray-500">{nome}</p>
+        <p className="truncate text-xs text-gray-500">{nome}</p>
         <p className="text-[10px] text-gray-400 mt-0.5">Meta: {moeda(meta)}</p>
         <p className="text-sm font-bold text-gray-900">{moeda(reservado)}</p>
         <p className="text-xs text-gray-400">{Math.round(percentual)}%</p>
@@ -644,7 +644,7 @@ export default function MinhaViagem() {
       )}
 
       {/* Conteúdo rolável */}
-      <div className="min-w-0 px-5 pt-6 pb-4 space-y-4">
+      <div className="min-w-0 px-4 pt-5 pb-4 space-y-4 sm:px-5 sm:pt-6">
         {erro && (
           <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">
             {erro}
@@ -653,9 +653,9 @@ export default function MinhaViagem() {
 
         {/* 1 — Header */}
         <div className="flex min-w-0 items-start justify-between gap-3 overflow-hidden">
-          <div className="flex items-start gap-3">
+          <div className="flex min-w-0 items-start gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl shrink-0">✈️</div>
-            <div>
+            <div className="min-w-0">
               <h1 className="text-base font-bold text-gray-900">Olá, Viajante! ✈️</h1>
               <p className="text-xs text-gray-500 leading-snug mt-0.5">
                 Pronto para mais<br />uma grande viagem?
@@ -727,7 +727,7 @@ export default function MinhaViagem() {
         {/* 4 — Custos por categoria */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-3">Custos por categoria</p>
-          <div className="flex max-w-full gap-3 overflow-x-auto overscroll-x-contain pb-1">
+          <div className="grid max-w-full grid-cols-2 gap-3 sm:flex sm:overflow-x-auto sm:overscroll-x-contain sm:pb-1">
             {categorias.map((cat) => (
               <CardCategoria key={cat.nome} {...cat} />
             ))}

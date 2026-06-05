@@ -57,7 +57,7 @@ function AnelProgresso({ percentual, consegue }: { percentual: number; consegue:
   const cor = consegue ? "#22c55e" : "#f59e0b";
 
   return (
-    <div className="relative w-28 h-28 shrink-0">
+    <div className="relative h-32 w-32 shrink-0">
       <svg className="w-full h-full" viewBox="0 0 120 120">
         <circle cx="60" cy="60" r={r} fill="none" stroke="#f3f4f6" strokeWidth="12" />
         <circle
@@ -68,8 +68,8 @@ function AnelProgresso({ percentual, consegue }: { percentual: number; consegue:
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-base font-bold text-gray-900">{Math.round(p)}%</span>
-        <span className="text-[10px] text-gray-400 text-center leading-tight px-1">
+        <span className="text-xl font-bold text-gray-900">{Math.round(p)}%</span>
+        <span className="text-xs text-gray-400 text-center leading-tight px-1">
           reservado
         </span>
       </div>
@@ -84,8 +84,8 @@ function LegendaItem({ cor, label, valor }: { cor: string; label: string; valor:
     <div className="flex items-center gap-2">
       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cor}`} />
       <div className="min-w-0">
-        <p className="text-[11px] text-gray-500 leading-none">{label}</p>
-        <p className="text-[11px] font-semibold text-gray-900 mt-0.5">{valor}</p>
+        <p className="text-sm text-gray-500 leading-tight">{label}</p>
+        <p className="text-base font-semibold text-gray-900 leading-tight">{valor}</p>
       </div>
     </div>
   );
@@ -105,13 +105,13 @@ function CardCategoria({
   const percentual = meta > 0 ? Math.min(100, (reservado / meta) * 100) : 0;
 
   return (
-    <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-3 flex flex-col gap-1.5">
-      <span className="text-2xl leading-none">{emoji}</span>
+    <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-3.5 flex flex-col gap-2">
+      <span className="text-3xl leading-none">{emoji}</span>
       <div>
-        <p className="truncate text-xs text-gray-500">{nome}</p>
-        <p className="text-[10px] text-gray-400 mt-0.5">Meta: {moeda(meta)}</p>
-        <p className="text-sm font-bold text-gray-900">{moeda(reservado)}</p>
-        <p className="text-xs text-gray-400">{Math.round(percentual)}%</p>
+        <p className="truncate text-base text-gray-500">{nome}</p>
+        <p className="text-xs text-gray-400 mt-0.5">Meta: {moeda(meta)}</p>
+        <p className="text-xl font-bold text-gray-900 leading-tight">{moeda(reservado)}</p>
+        <p className="text-base text-gray-400 leading-tight">{Math.round(percentual)}%</p>
       </div>
       <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
         <div className={`h-full ${cor} rounded-full`} style={{ width: `${percentual}%` }} />
@@ -563,19 +563,29 @@ export default function MinhaViagem() {
             onDeslogar={handleDeslogar}
           />
         )}
-        <div className="flex flex-col">
-          <div className="flex-1 px-5 py-12 text-center space-y-5">
+        <div className="flex min-h-dvh flex-col">
+          <div className="flex-1 px-5 py-16 text-center space-y-6">
             {erro && (
               <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">
                 {erro}
               </p>
             )}
-            <p className="text-sm text-gray-400">Nenhuma viagem planejada ainda.</p>
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-3xl">
+              ✈️
+            </div>
+            <div className="space-y-3">
+              <h1 className="text-2xl font-bold leading-tight text-gray-900">
+                Opa, seja bem bem vindo viajante!
+              </h1>
+              <p className="mx-auto max-w-xs text-base leading-relaxed text-gray-500">
+                Clique no botão abaixo para registrar o seu primeiro destino
+              </p>
+            </div>
             <Link
               href="/diagnostico"
-              className="inline-block rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+              className="inline-block w-full max-w-xs rounded-xl bg-blue-600 px-6 py-4 text-base font-semibold text-white hover:bg-blue-700 transition-colors"
             >
-              Planejar minha viagem
+              Registrar primeiro destino
             </Link>
           </div>
           <NavInferior
@@ -654,38 +664,38 @@ export default function MinhaViagem() {
         {/* 1 — Header */}
         <div className="flex min-w-0 items-start justify-between gap-3 overflow-hidden">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl shrink-0">✈️</div>
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-2xl shrink-0">✈️</div>
             <div className="min-w-0">
-              <h1 className="text-base font-bold text-gray-900">Olá, Viajante! ✈️</h1>
-              <p className="text-xs text-gray-500 leading-snug mt-0.5">
+              <h1 className="text-xl font-bold text-gray-900 leading-tight">Olá, Viajante! ✈️</h1>
+              <p className="text-base text-gray-500 leading-snug mt-1">
                 Pronto para mais<br />uma grande viagem?
               </p>
             </div>
           </div>
-          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 shrink-0" />
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 shrink-0" />
         </div>
 
         {/* 2 — Próxima viagem */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] uppercase tracking-widest text-gray-400">Próxima viagem</p>
-              <p className="text-xl font-bold text-gray-900 mt-1 truncate">{dados.destino}</p>
-              <p className="text-xs text-gray-400 mt-0.5">
+              <p className="text-xs uppercase tracking-widest text-gray-400">Próxima viagem</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1 truncate">{dados.destino}</p>
+              <p className="text-base text-gray-400 mt-0.5">
                 {formatarData(dados.dataIda)}
                 {dados.dataVolta ? ` a ${formatarData(dados.dataVolta)}` : ""}
               </p>
               <Link
                 href="/diagnostico?editar=1"
-                className="inline-block mt-2.5 text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1 rounded-full transition-colors"
+                className="inline-block mt-3 text-base bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-1.5 rounded-full transition-colors"
               >
                 Editar info
               </Link>
             </div>
             <div className="w-px bg-gray-100 self-stretch shrink-0" />
             <div className="text-right shrink-0 pl-1">
-              <p className="text-[10px] uppercase tracking-widest text-gray-400">Faltam</p>
-              <p className="text-xl font-bold text-gray-900 mt-1">{tempoFaltando}</p>
+              <p className="text-xs uppercase tracking-widest text-gray-400">Faltam</p>
+              <p className="text-3xl font-bold text-gray-900 mt-1">{tempoFaltando}</p>
             </div>
           </div>
         </div>
@@ -693,22 +703,22 @@ export default function MinhaViagem() {
         {/* 3 — Resumo do orçamento */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-[10px] uppercase tracking-widest text-gray-400">Resumo do orçamento</p>
-            <Link href="/diagnostico?editar=1" className="text-xs text-blue-500 hover:text-blue-600">Editar</Link>
+            <p className="text-xs uppercase tracking-widest text-gray-400">Resumo do orçamento</p>
+            <Link href="/diagnostico?editar=1" className="text-base text-blue-500 hover:text-blue-600">Editar</Link>
           </div>
 
           <div className="grid min-w-0 grid-cols-3 gap-2 mb-4">
             <div>
-              <p className="text-[10px] text-gray-400 leading-tight">Orçamento total</p>
-              <p className="text-sm font-bold text-gray-900 mt-0.5">{moeda(plano.custoTotal)}</p>
+              <p className="text-xs text-gray-400 leading-tight">Orçamento total</p>
+              <p className="text-base font-bold text-gray-900 mt-0.5">{moeda(plano.custoTotal)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 leading-tight">Reservado</p>
-              <p className="text-sm font-bold text-green-600 mt-0.5">{moeda(totalReservado)}</p>
+              <p className="text-xs text-gray-400 leading-tight">Reservado</p>
+              <p className="text-base font-bold text-green-600 mt-0.5">{moeda(totalReservado)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400 leading-tight">Restante</p>
-              <p className={`text-sm font-bold mt-0.5 ${restante === 0 ? "text-green-500" : "text-gray-900"}`}>
+              <p className="text-xs text-gray-400 leading-tight">Restante</p>
+              <p className={`text-base font-bold mt-0.5 ${restante === 0 ? "text-green-500" : "text-gray-900"}`}>
                 {restante === 0 ? "✓ Meta!" : moeda(restante)}
               </p>
             </div>
@@ -726,7 +736,7 @@ export default function MinhaViagem() {
 
         {/* 4 — Custos por categoria */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
-          <p className="text-[10px] uppercase tracking-widest text-gray-400 mb-3">Custos por categoria</p>
+          <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">Custos por categoria</p>
           <div className="grid max-w-full grid-cols-2 gap-3 sm:flex sm:overflow-x-auto sm:overscroll-x-contain sm:pb-1">
             {categorias.map((cat) => (
               <CardCategoria key={cat.nome} {...cat} />

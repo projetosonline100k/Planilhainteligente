@@ -1,0 +1,96 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    setIsLoading(true);
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    setIsLoading(false);
+
+    if (signInError) {
+      setError(signInError.message);
+      return;
+    }
+
+    router.push("/minha-viagem");
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
+      <section className="w-full max-w-sm">
+        <Link href="/" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+          Voltar
+        </Link>
+
+        <div className="mt-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-bold text-gray-900">Entrar</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            Acesse sua conta para continuar planejando sua viagem.
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Email</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                autoComplete="email"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-gray-700">Senha</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                autoComplete="current-password"
+                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+              />
+            </label>
+
+            {error && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+            >
+              {isLoading ? "Entrando..." : "Entrar"}
+            </button>
+          </form>
+
+          <p className="mt-5 text-center text-sm text-gray-500">
+            Ainda nao tem conta?{" "}
+            <Link href="/cadastro" className="font-medium text-blue-600 hover:text-blue-700">
+              Criar cadastro
+            </Link>
+          </p>
+        </div>
+      </section>
+    </main>
+  );
+}

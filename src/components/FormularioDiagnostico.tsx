@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DiagnosticoViagem } from "@/types/travel";
 import { calcularPlanoViagem } from "@/lib/calculations";
-import { criarNovaViagem, atualizarViagemAtiva, obterViagemAtiva } from "@/lib/storage";
+import {
+  atualizarViagemAtivaRepository,
+  criarViagem,
+  obterViagemAtivaRepository,
+} from "@/lib/travelRepository";
 
 const ESTADO_INICIAL: DiagnosticoViagem = {
   destino: "",
@@ -28,6 +32,34 @@ function formatarTempo(plano: { diasAteViagem: number; mesesAteViagem: number })
   }
   const m = plano.mesesAteViagem;
   return `${m} ${m === 1 ? "mês" : "meses"}`;
+}
+
+function dataLocal(dataIso: string): Date {
+  const [ano, mes, dia] = dataIso.split("-").map(Number);
+  return new Date(ano, mes - 1, dia);
+}
+
+function inicioDoDia(data: Date): Date {
+  return new Date(data.getFullYear(), data.getMonth(), data.getDate());
+}
+
+function mensagemErro(error: unknown): string {
+  if (error instanceof Error) return error.message;
+
+  if (typeof error === "object" && error !== null) {
+    const erroSupabase = error as {
+      code?: string;
+      details?: string;
+      hint?: string;
+      message?: string;
+    };
+
+    return [erroSupabase.message, erroSupabase.details, erroSupabase.hint, erroSupabase.code]
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  return "Nao foi possivel salvar sua viagem. Tente novamente.";
 }
 
 function InputMoeda({
@@ -56,8 +88,9 @@ function InputMoeda({
           name={id}
           type="number"
           min={0}
-          value={value}
+          value={value === 0 ? "" : value}
           onChange={onChange}
+          placeholder="0"
           className="w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-3.5 text-sm text-gray-900 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
         />
       </div>
@@ -67,11 +100,33 @@ function InputMoeda({
 
 export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdicao?: boolean }) {
   const router = useRouter();
-  const [dados, setDados] = useState<DiagnosticoViagem>(() => {
-    if (!modoEdicao) return ESTADO_INICIAL;
-    // Lê a viagem ativa do store (guard SSR dentro de obterViagemAtiva)
-    return obterViagemAtiva()?.dados ?? ESTADO_INICIAL;
-  });
+  const [dados, setDados] = useState<DiagnosticoViagem>(ESTADO_INICIAL);
+  const [carregando, setCarregando] = useState(modoEdicao);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+
+  useEffect(() => {
+    if (!modoEdicao) return;
+
+    let cancelado = false;
+
+    async function carregarViagem() {
+      try {
+        const viagem = await obterViagemAtivaRepository();
+        if (!cancelado && viagem) setDados(viagem.dados);
+      } catch {
+        if (!cancelado) setErro("Nao foi possivel carregar sua viagem.");
+      } finally {
+        if (!cancelado) setCarregando(false);
+      }
+    }
+
+    carregarViagem();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [modoEdicao]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value, type } = e.target;
@@ -81,26 +136,48 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
     }));
   }
 
-  function handleContinuar() {
-    if (modoEdicao) {
-      atualizarViagemAtiva(dados);
-    } else {
-      criarNovaViagem(dados);
+  async function handleContinuar() {
+    setErro("");
+    setSalvando(true);
+
+    try {
+      if (modoEdicao) {
+        await atualizarViagemAtivaRepository(dados);
+      } else {
+        await criarViagem(dados);
+      }
+      router.push("/minha-viagem");
+    } catch (error) {
+      console.error("Erro ao salvar viagem:", error);
+      setErro(mensagemErro(error));
+    } finally {
+      setSalvando(false);
     }
-    router.push("/minha-viagem");
   }
 
   const destinoPreenchido = dados.destino.trim() !== "";
   const dataPreenchida = dados.dataIda !== "";
-  const dataFutura = dataPreenchida && new Date(dados.dataIda) > new Date();
-  const dataPassada = dataPreenchida && !dataFutura;
+  const dataValida =
+    dataPreenchida && dataLocal(dados.dataIda) >= inicioDoDia(new Date());
+  const dataPassada = dataPreenchida && !dataValida;
 
-  const plano = destinoPreenchido && dataFutura ? calcularPlanoViagem(dados) : null;
+  const plano = destinoPreenchido && dataValida ? calcularPlanoViagem(dados) : null;
   const podeMostrarResumo = plano !== null && plano.custoTotal > 0;
   const podeMostrarResultado = podeMostrarResumo && dados.valorGuardadoPorMes > 0;
 
   return (
     <div className="space-y-5">
+      {carregando && (
+        <p className="rounded-xl bg-gray-50 px-4 py-3 text-xs text-gray-500">
+          Carregando viagem...
+        </p>
+      )}
+
+      {erro && (
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">
+          {erro}
+        </p>
+      )}
 
       {/* Banner modo edição */}
       {modoEdicao && (
@@ -158,7 +235,7 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
       {/* Aviso: data no passado */}
       {destinoPreenchido && dataPassada && (
         <p className="text-xs text-red-400">
-          Escolha uma data futura para calcular sua viagem.
+          Escolha uma data de ida hoje ou futura para calcular sua viagem.
         </p>
       )}
 
@@ -192,7 +269,7 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
       </div>
 
       {/* Aviso: custo zero com data válida */}
-      {destinoPreenchido && dataFutura && plano && !podeMostrarResumo && (
+      {destinoPreenchido && dataValida && plano && !podeMostrarResumo && (
         <p className="text-xs text-gray-400 italic">
           Preencha os custos estimados para ver sua projeção.
         </p>
@@ -264,14 +341,14 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
       <button
         type="button"
         onClick={handleContinuar}
-        disabled={!destinoPreenchido || !dataFutura}
+        disabled={!destinoPreenchido || !dataValida || carregando || salvando}
         className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition-colors ${
-          destinoPreenchido && dataFutura
+          destinoPreenchido && dataValida && !carregando && !salvando
             ? "bg-green-500 hover:bg-green-600 cursor-pointer"
             : "bg-gray-300 cursor-not-allowed"
         }`}
       >
-        Continuar
+        {salvando ? "Salvando..." : "Continuar"}
       </button>
 
     </div>

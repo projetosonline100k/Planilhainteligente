@@ -10,24 +10,12 @@ export default function Home() {
         <p className="mt-4 text-base text-gray-500">
           Descubra quanto precisa guardar por mês para realizar sua próxima viagem.
         </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+        <div className="mt-8 flex justify-center">
           <Link
             href="/login"
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-100"
+            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
           >
             Entrar
-          </Link>
-          <Link
-            href="/diagnostico"
-            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
-          >
-            Começar diagnóstico
-          </Link>
-          <Link
-            href="/minha-viagem"
-            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3 text-sm font-semibold text-gray-800 transition-colors hover:bg-gray-100"
-          >
-            Minha viagem
           </Link>
         </div>
       </div>

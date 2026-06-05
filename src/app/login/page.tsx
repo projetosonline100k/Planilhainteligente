@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
+import { ADMIN_EMAIL } from "@/lib/admin";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -17,18 +18,33 @@ export default function LoginPage() {
     setError("");
     setIsLoading(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    setIsLoading(false);
-
     if (signInError) {
+      setIsLoading(false);
       setError(signInError.message);
       return;
     }
 
+    const userId = data.user?.id;
+    const userEmail = data.user?.email;
+
+    if (!userId) {
+      setIsLoading(false);
+      setError("Nao foi possivel identificar o usuario logado.");
+      return;
+    }
+
+    if (userEmail === ADMIN_EMAIL) {
+      setIsLoading(false);
+      router.push("/admin");
+      return;
+    }
+
+    setIsLoading(false);
     router.push("/minha-viagem");
   }
 
@@ -84,10 +100,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-5 text-center text-sm text-gray-500">
-            Ainda nao tem conta?{" "}
-            <Link href="/cadastro" className="font-medium text-blue-600 hover:text-blue-700">
-              Criar cadastro
-            </Link>
+            Acesso liberado apenas para usuários cadastrados.
           </p>
         </div>
       </section>

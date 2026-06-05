@@ -1,15 +1,25 @@
 import { DiagnosticoViagem, PlanoViagem } from "@/types/travel";
 
-function calcularPeriodo(dataIda: string, hoje: Date): { dias: number; meses: number } {
-  const ida = new Date(dataIda);
+function dataLocal(dataIso: string): Date {
+  const [ano, mes, dia] = dataIso.split("-").map(Number);
+  return new Date(ano, mes - 1, dia);
+}
 
-  const diffMs = ida.getTime() - hoje.getTime();
+function inicioDoDia(data: Date): Date {
+  return new Date(data.getFullYear(), data.getMonth(), data.getDate());
+}
+
+function calcularPeriodo(dataIda: string, hoje: Date): { dias: number; meses: number } {
+  const ida = dataLocal(dataIda);
+  const hojeLocal = inicioDoDia(hoje);
+
+  const diffMs = ida.getTime() - hojeLocal.getTime();
   const dias = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 
   // Meses por calendário — mínimo 1 para não dividir por zero no cálculo financeiro
-  const anosD = ida.getFullYear() - hoje.getFullYear();
-  const mesesD = ida.getMonth() - hoje.getMonth();
-  const ajusteDia = ida.getDate() < hoje.getDate() ? -1 : 0;
+  const anosD = ida.getFullYear() - hojeLocal.getFullYear();
+  const mesesD = ida.getMonth() - hojeLocal.getMonth();
+  const ajusteDia = ida.getDate() < hojeLocal.getDate() ? -1 : 0;
   const meses = Math.max(1, anosD * 12 + mesesD + ajusteDia);
 
   return { dias, meses };

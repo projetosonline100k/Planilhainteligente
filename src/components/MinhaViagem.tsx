@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -11,24 +11,14 @@ import {
   ViagemStore,
 } from "@/types/travel";
 import { calcularPlanoViagem } from "@/lib/calculations";
-import { carregarStore, adicionarMovimentacao, definirViagemAtiva } from "@/lib/storage";
+import {
+  adicionarMovimentacaoRepository,
+  carregarViagemStore,
+  definirViagemAtivaRepository,
+} from "@/lib/travelRepository";
+import { supabase } from "@/lib/supabase";
 
-// ─── Hook reativo (lê o store completo) ──────────────────────────────────────
-// getSnapshot chama carregarStore() que executa migração se necessário.
-// JSON.stringify garante comparação por valor no Object.is do useSyncExternalStore.
-
-function useStore(): ViagemStore {
-  const snapshot = useSyncExternalStore(
-    () => () => {},
-    () => JSON.stringify(carregarStore()),
-    () => JSON.stringify({ viagens: [], viagemAtivaId: null } as ViagemStore)
-  );
-  try {
-    return JSON.parse(snapshot) as ViagemStore;
-  } catch {
-    return { viagens: [], viagemAtivaId: null };
-  }
-}
+const STORE_VAZIO: ViagemStore = { viagens: [], viagemAtivaId: null };
 
 // ─── Cálculo de capital reservado por categoria ───────────────────────────────
 
@@ -141,16 +131,20 @@ const CATEGORIAS: { id: CategoriaMovimentacao; label: string; emoji: string }[] 
 
 function ModalAdicionarCapital({
   onFechar,
+  onSalvar,
   meta,
   reservado,
 }: {
   onFechar: () => void;
+  onSalvar: (mov: Movimentacao) => Promise<void>;
   meta: Record<CategoriaMovimentacao, number>;
   reservado: Record<CategoriaMovimentacao, number>;
 }) {
   const [categoria, setCategoria] = useState<CategoriaMovimentacao>("passagem");
   const [tipo, setTipo] = useState<TipoMovimentacao>("entrada");
   const [valorStr, setValorStr] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
 
   const valorValido = parseFloat(valorStr) > 0;
 
@@ -160,16 +154,26 @@ function ModalAdicionarCapital({
   const progressoCat = metaCat > 0 ? Math.min(100, (reservadoCat / metaCat) * 100) : 0;
   const atingiuMeta = metaCat > 0 && reservadoCat >= metaCat;
 
-  function handleSalvar() {
-    if (!valorValido) return;
-    adicionarMovimentacao({
-      id: Date.now().toString(),
-      categoria,
-      tipo,
-      valor: parseFloat(valorStr),
-      dataCriacao: new Date().toISOString(),
-    });
-    onFechar();
+  async function handleSalvar() {
+    if (!valorValido || salvando) return;
+
+    setErro("");
+    setSalvando(true);
+
+    try {
+      await onSalvar({
+        id: Date.now().toString(),
+        categoria,
+        tipo,
+        valor: parseFloat(valorStr),
+        dataCriacao: new Date().toISOString(),
+      });
+      onFechar();
+    } catch {
+      setErro("Nao foi possivel salvar a movimentacao.");
+    } finally {
+      setSalvando(false);
+    }
   }
 
   return (
@@ -273,18 +277,22 @@ function ModalAdicionarCapital({
           </div>
         </div>
 
+        {erro && (
+          <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</p>
+        )}
+
         <div className="flex gap-3">
           <button onClick={onFechar} className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             Cancelar
           </button>
           <button
             onClick={handleSalvar}
-            disabled={!valorValido}
+            disabled={!valorValido || salvando}
             className={`flex-1 rounded-xl py-3 text-sm font-semibold text-white transition-colors ${
-              valorValido ? "bg-green-500 hover:bg-green-600 cursor-pointer" : "bg-gray-300 cursor-not-allowed"
+              valorValido && !salvando ? "bg-green-500 hover:bg-green-600 cursor-pointer" : "bg-gray-300 cursor-not-allowed"
             }`}
           >
-            Salvar
+            {salvando ? "Salvando..." : "Salvar"}
           </button>
         </div>
       </div>
@@ -298,21 +306,51 @@ function ModalMeusDestinos({
   viagens,
   viagemAtivaId,
   onFechar,
+  onSelecionar,
+  onDeslogar,
 }: {
   viagens: ViagemItem[];
   viagemAtivaId: string | null;
   onFechar: () => void;
+  onSelecionar: (id: string) => Promise<void>;
+  onDeslogar: () => Promise<void>;
 }) {
   const router = useRouter();
+  const [selecionandoId, setSelecionandoId] = useState<string | null>(null);
+  const [deslogando, setDeslogando] = useState(false);
+  const [erro, setErro] = useState("");
 
-  function handleSelecionarViagem(id: string) {
-    definirViagemAtiva(id);
-    onFechar();
+  async function handleSelecionarViagem(id: string) {
+    setErro("");
+    setSelecionandoId(id);
+
+    try {
+      await onSelecionar(id);
+      onFechar();
+    } catch {
+      setErro("Nao foi possivel selecionar esse destino.");
+    } finally {
+      setSelecionandoId(null);
+    }
   }
 
   function handleAdicionarOutroDestino() {
     onFechar();
     router.push("/diagnostico");
+  }
+
+  async function handleDeslogar() {
+    setErro("");
+    setDeslogando(true);
+
+    try {
+      await onDeslogar();
+      onFechar();
+    } catch {
+      setErro("Nao foi possivel sair da conta.");
+    } finally {
+      setDeslogando(false);
+    }
   }
 
   return (
@@ -359,6 +397,11 @@ function ModalMeusDestinos({
                         Ativa
                       </span>
                     )}
+                    {selecionandoId === viagem.id && (
+                      <span className="shrink-0 text-[10px] font-semibold text-gray-400">
+                        Salvando...
+                      </span>
+                    )}
                   </div>
                 </button>
               );
@@ -366,11 +409,23 @@ function ModalMeusDestinos({
           </div>
         )}
 
+        {erro && (
+          <p className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</p>
+        )}
+
         <button
           onClick={handleAdicionarOutroDestino}
           className="w-full rounded-xl border border-dashed border-gray-300 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
         >
           + Adicionar outro destino
+        </button>
+
+        <button
+          onClick={handleDeslogar}
+          disabled={deslogando}
+          className="mt-3 w-full rounded-xl border border-red-100 bg-red-50 py-3 text-sm font-medium text-red-600 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
+        >
+          {deslogando ? "Saindo..." : "Deslogar"}
         </button>
       </div>
     </div>
@@ -434,11 +489,66 @@ function NavInferior({
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function MinhaViagem() {
-  const store = useStore();
+  const router = useRouter();
+  const [store, setStore] = useState<ViagemStore>(STORE_VAZIO);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState("");
   const [modalCapitalAberto, setModalCapitalAberto] = useState(false);
   const [modalDestinosAberto, setModalDestinosAberto] = useState(false);
 
+  useEffect(() => {
+    let cancelado = false;
+
+    async function carregar() {
+      setErro("");
+
+      try {
+        const storeCarregado = await carregarViagemStore();
+        if (!cancelado) setStore(storeCarregado);
+      } catch {
+        if (!cancelado) setErro("Nao foi possivel carregar suas viagens.");
+      } finally {
+        if (!cancelado) setCarregando(false);
+      }
+    }
+
+    carregar();
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  async function handleAdicionarMovimentacao(mov: Movimentacao) {
+    const storeAtualizado = await adicionarMovimentacaoRepository(mov);
+    setStore(storeAtualizado);
+  }
+
+  async function handleSelecionarViagem(id: string) {
+    const storeAtualizado = await definirViagemAtivaRepository(id);
+    setStore(storeAtualizado);
+  }
+
+  async function handleDeslogar() {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+
+    const storeAtualizado = await carregarViagemStore();
+    setStore(storeAtualizado);
+    router.replace("/login");
+  }
+
   const viagemAtiva = store.viagens.find((v) => v.id === store.viagemAtivaId) ?? null;
+
+  if (carregando) {
+    return (
+      <div className="flex flex-col">
+        <div className="flex-1 px-5 py-12 text-center">
+          <p className="text-sm text-gray-400">Carregando sua viagem...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Estado vazio
   if (!viagemAtiva) {
@@ -449,10 +559,17 @@ export default function MinhaViagem() {
             viagens={store.viagens}
             viagemAtivaId={store.viagemAtivaId}
             onFechar={() => setModalDestinosAberto(false)}
+            onSelecionar={handleSelecionarViagem}
+            onDeslogar={handleDeslogar}
           />
         )}
         <div className="flex flex-col">
           <div className="flex-1 px-5 py-12 text-center space-y-5">
+            {erro && (
+              <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">
+                {erro}
+              </p>
+            )}
             <p className="text-sm text-gray-400">Nenhuma viagem planejada ainda.</p>
             <Link
               href="/diagnostico"
@@ -510,6 +627,7 @@ export default function MinhaViagem() {
       {modalCapitalAberto && (
         <ModalAdicionarCapital
           onFechar={() => setModalCapitalAberto(false)}
+          onSalvar={handleAdicionarMovimentacao}
           meta={meta}
           reservado={reservado}
         />
@@ -520,11 +638,18 @@ export default function MinhaViagem() {
           viagens={store.viagens}
           viagemAtivaId={store.viagemAtivaId}
           onFechar={() => setModalDestinosAberto(false)}
+          onSelecionar={handleSelecionarViagem}
+          onDeslogar={handleDeslogar}
         />
       )}
 
       {/* Conteúdo rolável */}
       <div className="px-5 pt-6 pb-4 space-y-4">
+        {erro && (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">
+            {erro}
+          </p>
+        )}
 
         {/* 1 — Header */}
         <div className="flex items-start justify-between">

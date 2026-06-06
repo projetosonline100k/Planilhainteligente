@@ -21,6 +21,62 @@ import { supabase } from "@/lib/supabase";
 
 const STORE_VAZIO: ViagemStore = { viagens: [], viagemAtivaId: null };
 const CHAVE_AVATAR = "viagem-user-avatar";
+const CHAVE_CHECKLIST = "viagem-checklists";
+
+type StatusMensal = "em_andamento" | "meta_batida" | "concluido" | "superou" | "abaixo";
+
+type ChecklistItem = {
+  id: string;
+  titulo: string;
+  concluido: boolean;
+};
+
+type ChecklistSubitem = {
+  id: string;
+  titulo: string;
+  concluido: boolean;
+};
+
+type ChecklistPessoal = {
+  id: string;
+  titulo: string;
+  subitens: ChecklistSubitem[];
+};
+
+type ChecklistEstado = {
+  recomendados: ChecklistItem[];
+  pessoais: ChecklistPessoal[];
+};
+
+type MesEconomia = {
+  chave: string;
+  nome: string;
+  guardado: number;
+  meta: number;
+  percentual: number;
+  status: StatusMensal;
+  atual: boolean;
+};
+
+const CHECKLIST_PADRAO: ChecklistItem[] = [
+  { id: "documentos", titulo: "Documentos separados", concluido: false },
+  { id: "hospedagem", titulo: "Hospedagem confirmada", concluido: false },
+  { id: "passagens", titulo: "Passagens salvas", concluido: false },
+  { id: "check-in", titulo: "Fazer check-in", concluido: false },
+  { id: "mala", titulo: "Montar mala", concluido: false },
+  { id: "carregador", titulo: "Levar carregador e adaptador", concluido: false },
+];
+
+function criarChecklistPadrao(): ChecklistItem[] {
+  return CHECKLIST_PADRAO.map((item) => ({ ...item }));
+}
+
+function criarEstadoChecklist(): ChecklistEstado {
+  return {
+    recomendados: criarChecklistPadrao(),
+    pessoais: [],
+  };
+}
 
 // ─── Cálculo de capital reservado por categoria ───────────────────────────────
 
@@ -47,6 +103,106 @@ function formatarDataCompleta(iso: string): string {
   if (!iso) return "";
   const [ano, mes, dia] = iso.split("-");
   return `${dia}/${mes}/${ano}`;
+}
+
+function chaveMes(data: Date): string {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function nomeMes(chave: string): string {
+  const [ano, mes] = chave.split("-").map(Number);
+  const data = new Date(ano, mes - 1, 1);
+  const nome = data.toLocaleDateString("pt-BR", { month: "long" });
+  return nome.charAt(0).toUpperCase() + nome.slice(1);
+}
+
+function calcularGuardadoNoMes(movs: Movimentacao[], chave: string): number {
+  const total = movs
+    .filter((mov) => chaveMes(new Date(mov.dataCriacao)) === chave)
+    .reduce((acc, mov) => (mov.tipo === "entrada" ? acc + mov.valor : acc - mov.valor), 0);
+
+  return Math.max(0, total);
+}
+
+function statusMensal({
+  atual,
+  guardado,
+  meta,
+}: {
+  atual: boolean;
+  guardado: number;
+  meta: number;
+}): StatusMensal {
+  if (atual && guardado >= meta) return "meta_batida";
+  if (atual) return "em_andamento";
+  if (guardado > meta) return "superou";
+  if (guardado >= meta) return "concluido";
+  return "abaixo";
+}
+
+function carregarChecklists(): Record<string, ChecklistEstado> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = localStorage.getItem(CHAVE_CHECKLIST);
+    const parsed = raw ? JSON.parse(raw) : {};
+    const entradas = Object.entries(parsed as Record<string, ChecklistItem[] | ChecklistEstado>);
+
+    return entradas.reduce<Record<string, ChecklistEstado>>((acc, [tripId, valor]) => {
+      if (Array.isArray(valor)) {
+        acc[tripId] = { recomendados: valor, pessoais: [] };
+        return acc;
+      }
+
+      acc[tripId] = {
+        recomendados: valor.recomendados ?? criarChecklistPadrao(),
+        pessoais: valor.pessoais ?? [],
+      };
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
+}
+
+function salvarChecklists(checklists: Record<string, ChecklistEstado>): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(CHAVE_CHECKLIST, JSON.stringify(checklists));
+}
+
+function obterChecklistEstado(
+  checklists: Record<string, ChecklistEstado>,
+  tripId: string
+): ChecklistEstado {
+  return checklists[tripId] ?? criarEstadoChecklist();
+}
+
+function calcularHistoricoMensal(movs: Movimentacao[], meta: number): MesEconomia[] {
+  const agora = new Date();
+  const chaveAtual = chaveMes(agora);
+  const chaves = new Set<string>([chaveAtual]);
+
+  movs.forEach((mov) => {
+    chaves.add(chaveMes(new Date(mov.dataCriacao)));
+  });
+
+  return Array.from(chaves)
+    .sort((a, b) => b.localeCompare(a))
+    .map((chave) => {
+      const guardado = calcularGuardadoNoMes(movs, chave);
+      const percentual = meta > 0 ? Math.round((guardado / meta) * 100) : 0;
+      const atual = chave === chaveAtual;
+
+      return {
+        chave,
+        nome: nomeMes(chave),
+        guardado,
+        meta,
+        percentual,
+        status: statusMensal({ atual, guardado, meta }),
+        atual,
+      };
+    });
 }
 
 // ─── Anel de progresso (SVG puro) ─────────────────────────────────────────────
@@ -117,6 +273,566 @@ function CardCategoria({
       </div>
       <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
         <div className={`h-full ${cor} rounded-full`} style={{ width: `${percentual}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function etiquetaStatus(status: StatusMensal): {
+  label: string;
+  classe: string;
+} {
+  if (status === "meta_batida") {
+    return { label: "Meta batida", classe: "bg-green-50 text-green-600" };
+  }
+
+  if (status === "em_andamento") {
+    return { label: "Em andamento", classe: "bg-gray-100 text-gray-600" };
+  }
+
+  if (status === "abaixo") {
+    return { label: "Abaixo da meta", classe: "bg-orange-50 text-orange-600" };
+  }
+
+  if (status === "superou") {
+    return { label: "Superou", classe: "bg-green-50 text-green-600" };
+  }
+
+  return { label: "Concluído", classe: "bg-green-50 text-green-600" };
+}
+
+function BarraProgressoMensal({ percentual }: { percentual: number }) {
+  const progresso = Math.min(100, Math.max(0, percentual));
+
+  return (
+    <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+      <div
+        className="h-full rounded-full bg-green-500 transition-all"
+        style={{ width: `${progresso}%` }}
+      />
+    </div>
+  );
+}
+
+function CardMetaMes({
+  metaMensal,
+  guardadoMes,
+  onAbrirHistorico,
+}: {
+  metaMensal: number;
+  guardadoMes: number;
+  onAbrirHistorico: () => void;
+}) {
+  if (metaMensal <= 0) {
+    return (
+      <div className="min-w-0 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <p className="text-xs uppercase tracking-widest text-gray-400">Meta do mês</p>
+        <p className="mt-3 text-base leading-relaxed text-gray-500">
+          Defina quanto você quer guardar por mês para acompanhar seu progresso.
+        </p>
+        <Link
+          href="/diagnostico?editar=1"
+          className="mt-4 inline-flex rounded-full bg-gray-100 px-4 py-2 text-base font-medium text-gray-700 transition-colors hover:bg-gray-200"
+        >
+          Definir meta mensal
+        </Link>
+      </div>
+    );
+  }
+
+  const faltam = Math.max(0, metaMensal - guardadoMes);
+  const percentual = Math.round((guardadoMes / metaMensal) * 100);
+  const percentualLimitado = Math.min(100, Math.max(0, percentual));
+  const bateuMeta = guardadoMes >= metaMensal;
+
+  return (
+    <div
+      className={`min-w-0 overflow-hidden rounded-2xl border bg-white shadow-sm ${
+        bateuMeta ? "border-green-200 shadow-green-100/80" : "border-gray-100"
+      }`}
+    >
+      <div className="p-4">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs uppercase tracking-widest text-gray-400">Meta do mês</p>
+          {bateuMeta && (
+            <span className="shrink-0 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-600">
+              Meta batida
+            </span>
+          )}
+        </div>
+
+        <div className="mt-4 grid min-w-0 grid-cols-3 gap-2">
+          <div>
+            <p className="text-sm text-gray-500 leading-tight">Meta mensal</p>
+            <p className="mt-1 text-base font-bold text-gray-900">{moeda(metaMensal)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 leading-tight">Guardado no mês</p>
+            <p className="mt-1 text-base font-bold text-green-600">{moeda(guardadoMes)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500 leading-tight">Faltam</p>
+            <p className={`mt-1 text-base font-bold ${bateuMeta ? "text-green-600" : "text-gray-900"}`}>
+              {bateuMeta ? "✓ Meta!" : moeda(faltam)}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <BarraProgressoMensal percentual={percentualLimitado} />
+          <div className="flex items-center justify-between text-sm text-gray-500">
+            <span>
+              {moeda(guardadoMes)} de {moeda(metaMensal)}
+            </span>
+            <span>{percentual}%</span>
+          </div>
+          {bateuMeta && (
+            <p className="rounded-xl bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
+              Parabéns, você bateu a meta deste mês.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onAbrirHistorico}
+        className="flex w-full items-center justify-between border-t border-gray-100 px-4 py-4 text-left text-base text-gray-500 transition-colors hover:bg-gray-50"
+      >
+        <span className="flex items-center gap-3">
+          <span>Ver meses anteriores</span>
+        </span>
+        <span className="text-2xl leading-none text-gray-400">›</span>
+      </button>
+    </div>
+  );
+}
+
+function ItemHistoricoMensal({ mes }: { mes: MesEconomia }) {
+  const status = etiquetaStatus(mes.status);
+  const destaque = mes.status === "meta_batida" || mes.status === "concluido" || mes.status === "superou";
+
+  return (
+    <button
+      type="button"
+      className={`w-full rounded-xl border bg-white p-4 text-left transition-colors hover:bg-gray-50 ${
+        destaque ? "border-green-100" : "border-gray-100"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-bold text-gray-900">{mes.nome}</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {moeda(mes.guardado)} de {moeda(mes.meta)}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className={`rounded-full px-3 py-1 text-xs font-medium ${status.classe}`}>
+            {status.label}
+          </span>
+          <span className="text-3xl leading-none text-gray-400">›</span>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <BarraProgressoMensal percentual={mes.percentual} />
+        </div>
+        <span className="w-11 shrink-0 text-right text-sm text-gray-500">{mes.percentual}%</span>
+      </div>
+    </button>
+  );
+}
+
+function resumoChecklist(tarefas: ChecklistItem[]): { concluidas: number; total: number; percentual: number } {
+  const total = tarefas.length;
+  const concluidas = tarefas.filter((tarefa) => tarefa.concluido).length;
+  const percentual = total > 0 ? Math.round((concluidas / total) * 100) : 0;
+
+  return { concluidas, total, percentual };
+}
+
+function resumoSubitens(checklists: ChecklistPessoal[]): {
+  concluidas: number;
+  total: number;
+  percentual: number;
+} {
+  const subitens = checklists.flatMap((checklist) => checklist.subitens);
+  const total = subitens.length;
+  const concluidas = subitens.filter((subitem) => subitem.concluido).length;
+  const percentual = total > 0 ? Math.round((concluidas / total) * 100) : 0;
+
+  return { concluidas, total, percentual };
+}
+
+function resumoChecklistGeral(estado: ChecklistEstado): {
+  concluidas: number;
+  total: number;
+  percentual: number;
+} {
+  const recomendados = resumoChecklist(estado.recomendados);
+  const pessoais = resumoSubitens(estado.pessoais);
+  const total = recomendados.total + pessoais.total;
+  const concluidas = recomendados.concluidas + pessoais.concluidas;
+  const percentual = total > 0 ? Math.round((concluidas / total) * 100) : 0;
+
+  return { concluidas, total, percentual };
+}
+
+function CardChecklist({
+  estado,
+  onAbrir,
+}: {
+  estado: ChecklistEstado;
+  onAbrir: () => void;
+}) {
+  const resumo = resumoChecklistGeral(estado);
+
+  return (
+    <button
+      type="button"
+      onClick={onAbrir}
+      className="flex w-full items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-colors hover:bg-gray-50"
+    >
+      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 border-green-500 text-2xl text-green-600">
+        ✓
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-base font-bold text-gray-900">Checklist</p>
+        <p className="text-sm text-gray-500">
+          {resumo.total > 0
+            ? `${resumo.concluidas} de ${resumo.total} concluídos`
+            : "Nenhuma tarefa adicionada ainda"}
+        </p>
+      </div>
+      <span className="shrink-0 text-3xl leading-none text-gray-400">›</span>
+    </button>
+  );
+}
+
+function ModalChecklist({
+  estado,
+  onFechar,
+  onAlternarRecomendado,
+  onCriarChecklist,
+  onAdicionarSubitem,
+  onAlternarSubitem,
+}: {
+  estado: ChecklistEstado;
+  onFechar: () => void;
+  onAlternarRecomendado: (id: string) => void;
+  onCriarChecklist: (titulo: string) => void;
+  onAdicionarSubitem: (checklistId: string, titulo: string) => void;
+  onAlternarSubitem: (checklistId: string, subitemId: string) => void;
+}) {
+  const [checklistAbertoId, setChecklistAbertoId] = useState<string | null>(
+    estado.pessoais[0]?.id ?? null
+  );
+  const [novoChecklist, setNovoChecklist] = useState("");
+  const [novoSubitem, setNovoSubitem] = useState<Record<string, string>>({});
+  const resumoRecomendado = resumoChecklist(estado.recomendados);
+  const resumoPessoal = resumoSubitens(estado.pessoais);
+
+  function handleCriarChecklist() {
+    const titulo = novoChecklist.trim();
+    if (!titulo) return;
+
+    onCriarChecklist(titulo);
+    setNovoChecklist("");
+  }
+
+  function handleAdicionarSubitem(checklistId: string) {
+    const titulo = (novoSubitem[checklistId] ?? "").trim();
+    if (!titulo) return;
+
+    onAdicionarSubitem(checklistId, titulo);
+    setNovoSubitem((prev) => ({ ...prev, [checklistId]: "" }));
+    setChecklistAbertoId(checklistId);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onFechar}>
+      <div
+        className="max-h-[82dvh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white px-5 pb-8 pt-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-5 h-1.5 w-16 rounded-full bg-gray-200" />
+
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-bold text-gray-900">Checklist da viagem</h2>
+            <p className="mt-2 text-base leading-relaxed text-gray-500">
+              Organize tudo o que falta antes de viajar.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onFechar}
+            className="shrink-0 text-3xl leading-none text-gray-400 hover:text-gray-600"
+            aria-label="Fechar checklist"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="grid gap-3">
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <p className="text-base font-bold text-gray-900">Checklist recomendado</p>
+            <p className="mt-1 text-sm text-gray-500">
+              {resumoRecomendado.concluidas} de {resumoRecomendado.total} concluídos
+            </p>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <BarraProgressoMensal percentual={resumoRecomendado.percentual} />
+              </div>
+              <span className="w-11 shrink-0 text-right text-sm text-gray-500">
+                {resumoRecomendado.percentual}%
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-100 bg-white p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-base font-bold text-gray-900">Organização pessoal</p>
+                <p className="mt-1 text-sm text-gray-500">
+                  {resumoPessoal.concluidas} de {resumoPessoal.total} itens concluídos
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCriarChecklist}
+                className="shrink-0 text-sm font-semibold text-green-600"
+              >
+                + Novo checklist
+              </button>
+            </div>
+            <div className="mt-3 flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <BarraProgressoMensal percentual={resumoPessoal.percentual} />
+              </div>
+              <span className="w-11 shrink-0 text-right text-sm text-gray-500">
+                {resumoPessoal.percentual}%
+              </span>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={novoChecklist}
+                onChange={(e) => setNovoChecklist(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleCriarChecklist();
+                }}
+                placeholder="Nome do checklist"
+                className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-400/20"
+              />
+              <button
+                type="button"
+                onClick={handleCriarChecklist}
+                className="rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Criar
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <p className="mb-3 text-base font-bold text-gray-900">Recomendado pelo app</p>
+          <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
+            {estado.recomendados.map((tarefa) => (
+              <button
+                key={tarefa.id}
+                type="button"
+                onClick={() => onAlternarRecomendado(tarefa.id)}
+                className="flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3.5 text-left last:border-b-0 hover:bg-gray-50"
+              >
+                <span
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-base font-bold ${
+                    tarefa.concluido
+                      ? "border-green-500 bg-green-500 text-white"
+                      : "border-gray-300 bg-white text-transparent"
+                  }`}
+                >
+                  ✓
+                </span>
+                <span
+                  className={`min-w-0 flex-1 text-base ${
+                    tarefa.concluido ? "text-gray-400 line-through" : "text-gray-900"
+                  }`}
+                >
+                  {tarefa.titulo}
+                </span>
+                <span className="shrink-0 text-2xl leading-none text-gray-400">›</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <p className="mb-3 text-base font-bold text-gray-900">Organização pessoal</p>
+          {estado.pessoais.length === 0 ? (
+            <div className="rounded-xl bg-gray-50 px-4 py-6 text-center">
+              <p className="text-sm text-gray-500">
+                Você ainda não criou nenhum checklist pessoal.
+              </p>
+              <button
+                type="button"
+                onClick={handleCriarChecklist}
+                className="mt-4 rounded-full bg-green-500 px-5 py-2 text-sm font-semibold text-white"
+              >
+                Criar checklist
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
+              {estado.pessoais.map((checklist) => {
+                const aberto = checklistAbertoId === checklist.id;
+                const resumo = resumoSubitens([checklist]);
+
+                return (
+                  <div key={checklist.id} className="border-b border-gray-100 last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => setChecklistAbertoId(aberto ? null : checklist.id)}
+                      className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-gray-50"
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-xl text-green-600">
+                        ▣
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-base font-bold text-gray-900">
+                          {checklist.titulo}
+                        </span>
+                        <span className="block text-sm text-gray-500">
+                          {resumo.concluidas} de {resumo.total} itens
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-2xl leading-none text-gray-400">
+                        {aberto ? "⌃" : "⌄"}
+                      </span>
+                    </button>
+
+                    {aberto && (
+                      <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+                        {checklist.subitens.length === 0 ? (
+                          <p className="py-2 text-sm text-gray-500">
+                            Nenhum item adicionado ainda.
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {checklist.subitens.map((subitem) => (
+                              <button
+                                key={subitem.id}
+                                type="button"
+                                onClick={() => onAlternarSubitem(checklist.id, subitem.id)}
+                                className="flex w-full items-center gap-3 text-left"
+                              >
+                                <span
+                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
+                                    subitem.concluido
+                                      ? "border-green-500 bg-green-500 text-white"
+                                      : "border-gray-300 bg-white text-transparent"
+                                  }`}
+                                >
+                                  ✓
+                                </span>
+                                <span
+                                  className={`min-w-0 flex-1 text-sm ${
+                                    subitem.concluido
+                                      ? "text-gray-400 line-through"
+                                      : "text-gray-700"
+                                  }`}
+                                >
+                                  {subitem.titulo}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="mt-3 flex gap-2">
+                          <input
+                            type="text"
+                            value={novoSubitem[checklist.id] ?? ""}
+                            onChange={(e) =>
+                              setNovoSubitem((prev) => ({
+                                ...prev,
+                                [checklist.id]: e.target.value,
+                              }))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleAdicionarSubitem(checklist.id);
+                            }}
+                            placeholder="Adicionar item"
+                            className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-400/20"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAdicionarSubitem(checklist.id)}
+                            className="rounded-xl bg-green-500 px-3 py-2 text-sm font-semibold text-white"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalHistoricoMensal({
+  historico,
+  onFechar,
+}: {
+  historico: MesEconomia[];
+  onFechar: () => void;
+}) {
+  const temMesesAnteriores = historico.some((mes) => !mes.atual);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onFechar}>
+      <div
+        className="max-h-[80dvh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white px-6 pb-8 pt-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-5 h-1.5 w-16 rounded-full bg-gray-200" />
+
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 className="text-2xl font-bold text-gray-900">Histórico mensal</h2>
+            <p className="mt-2 text-base leading-relaxed text-gray-500">
+              Acompanhe seu desempenho dos últimos meses.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onFechar}
+            className="shrink-0 text-3xl leading-none text-gray-400 hover:text-gray-600"
+            aria-label="Fechar histórico mensal"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {historico.map((mes) => (
+            <ItemHistoricoMensal key={mes.chave} mes={mes} />
+          ))}
+
+          {!temMesesAnteriores && (
+            <p className="rounded-xl bg-gray-50 px-4 py-4 text-center text-sm text-gray-500">
+              Você ainda não possui histórico de meses anteriores.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -535,6 +1251,11 @@ export default function MinhaViagem() {
   const [erro, setErro] = useState("");
   const [modalCapitalAberto, setModalCapitalAberto] = useState(false);
   const [modalDestinosAberto, setModalDestinosAberto] = useState(false);
+  const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
+  const [modalChecklistAberto, setModalChecklistAberto] = useState(false);
+  const [checklists, setChecklists] = useState<Record<string, ChecklistEstado>>(() =>
+    carregarChecklists()
+  );
   const [avatar, setAvatar] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return localStorage.getItem(CHAVE_AVATAR);
@@ -591,6 +1312,80 @@ export default function MinhaViagem() {
       setAvatar(resultado);
     };
     reader.readAsDataURL(file);
+  }
+
+  function atualizarChecklistViagem(
+    tripId: string,
+    updater: (estado: ChecklistEstado) => ChecklistEstado
+  ) {
+    setChecklists((prev) => {
+      const atual = obterChecklistEstado(prev, tripId);
+      const proximo = { ...prev, [tripId]: updater(atual) };
+      salvarChecklists(proximo);
+      return proximo;
+    });
+  }
+
+  function handleAlternarRecomendado(tripId: string, tarefaId: string) {
+    atualizarChecklistViagem(tripId, (estado) => ({
+      ...estado,
+      recomendados: estado.recomendados.map((tarefa) =>
+        tarefa.id === tarefaId ? { ...tarefa, concluido: !tarefa.concluido } : tarefa
+      ),
+    }));
+  }
+
+  function handleCriarChecklistPessoal(tripId: string, titulo: string) {
+    atualizarChecklistViagem(tripId, (estado) => ({
+      ...estado,
+      pessoais: [
+        ...estado.pessoais,
+        {
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+          titulo,
+          subitens: [],
+        },
+      ],
+    }));
+  }
+
+  function handleAdicionarSubitem(tripId: string, checklistId: string, titulo: string) {
+    atualizarChecklistViagem(tripId, (estado) => ({
+      ...estado,
+      pessoais: estado.pessoais.map((checklist) =>
+        checklist.id === checklistId
+          ? {
+              ...checklist,
+              subitens: [
+                ...checklist.subitens,
+                {
+                  id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+                  titulo,
+                  concluido: false,
+                },
+              ],
+            }
+          : checklist
+      ),
+    }));
+  }
+
+  function handleAlternarSubitem(tripId: string, checklistId: string, subitemId: string) {
+    atualizarChecklistViagem(tripId, (estado) => ({
+      ...estado,
+      pessoais: estado.pessoais.map((checklist) =>
+        checklist.id === checklistId
+          ? {
+              ...checklist,
+              subitens: checklist.subitens.map((subitem) =>
+                subitem.id === subitemId
+                  ? { ...subitem, concluido: !subitem.concluido }
+                  : subitem
+              ),
+            }
+          : checklist
+      ),
+    }));
   }
 
   async function handleDeslogar() {
@@ -663,6 +1458,7 @@ export default function MinhaViagem() {
   }
 
   const { dados, movimentacoes } = viagemAtiva;
+  const checklistViagem = obterChecklistEstado(checklists, viagemAtiva.id);
   const plano = calcularPlanoViagem(dados);
 
   const meta = {
@@ -683,6 +1479,10 @@ export default function MinhaViagem() {
   const restante = Math.max(0, plano.custoTotal - totalReservado);
   const percentualReservado =
     plano.custoTotal > 0 ? (totalReservado / plano.custoTotal) * 100 : 0;
+  const metaMensal = dados.valorGuardadoPorMes;
+  const mesAtual = chaveMes(new Date());
+  const guardadoMesAtual = calcularGuardadoNoMes(movimentacoes, mesAtual);
+  const historicoMensal = calcularHistoricoMensal(movimentacoes, metaMensal);
 
   const tempoFaltando =
     plano.diasAteViagem < 30
@@ -716,6 +1516,28 @@ export default function MinhaViagem() {
           onSelecionar={handleSelecionarViagem}
           onApagar={handleApagarViagem}
           onDeslogar={handleDeslogar}
+        />
+      )}
+
+      {modalHistoricoAberto && (
+        <ModalHistoricoMensal
+          historico={historicoMensal}
+          onFechar={() => setModalHistoricoAberto(false)}
+        />
+      )}
+
+      {modalChecklistAberto && (
+        <ModalChecklist
+          estado={checklistViagem}
+          onFechar={() => setModalChecklistAberto(false)}
+          onAlternarRecomendado={(id) => handleAlternarRecomendado(viagemAtiva.id, id)}
+          onCriarChecklist={(titulo) => handleCriarChecklistPessoal(viagemAtiva.id, titulo)}
+          onAdicionarSubitem={(checklistId, titulo) =>
+            handleAdicionarSubitem(viagemAtiva.id, checklistId, titulo)
+          }
+          onAlternarSubitem={(checklistId, subitemId) =>
+            handleAlternarSubitem(viagemAtiva.id, checklistId, subitemId)
+          }
         />
       )}
 
@@ -778,7 +1600,20 @@ export default function MinhaViagem() {
           </div>
         </div>
 
-        {/* 3 — Resumo do orçamento */}
+        {/* 3 — Meta do mês */}
+        <CardMetaMes
+          metaMensal={metaMensal}
+          guardadoMes={guardadoMesAtual}
+          onAbrirHistorico={() => setModalHistoricoAberto(true)}
+        />
+
+        {/* 4 — Checklist */}
+        <CardChecklist
+          estado={checklistViagem}
+          onAbrir={() => setModalChecklistAberto(true)}
+        />
+
+        {/* 5 — Resumo do orçamento */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs uppercase tracking-widest text-gray-400">Resumo do orçamento</p>
@@ -812,7 +1647,7 @@ export default function MinhaViagem() {
           </div>
         </div>
 
-        {/* 4 — Custos por categoria */}
+        {/* 6 — Custos por categoria */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">Custos por categoria</p>
           <div className="grid max-w-full grid-cols-2 gap-3 sm:flex sm:overflow-x-auto sm:overscroll-x-contain sm:pb-1">

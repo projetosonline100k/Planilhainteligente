@@ -21,6 +21,8 @@ const ESTADO_INICIAL: DiagnosticoViagem = {
   valorGuardadoPorMes: 150,
 };
 
+const META_MENSAL_MAX_PADRAO = 5000;
+
 function moeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -181,6 +183,11 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
   const plano = destinoPreenchido && dataValida ? calcularPlanoViagem(dados) : null;
   const podeMostrarResumo = plano !== null && plano.custoTotal > 0;
   const podeMostrarResultado = podeMostrarResumo && dados.valorGuardadoPorMes > 0;
+  const metaMensalMax = Math.max(
+    META_MENSAL_MAX_PADRAO,
+    dados.valorGuardadoPorMes,
+    plano?.custoTotal ?? 0
+  );
 
   return (
     <div className="space-y-5">
@@ -317,22 +324,30 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
         </>
       )}
 
-      {/* Slider */}
+      {/* Meta mensal */}
       <div>
-        <p className="text-sm text-gray-700 mb-3">- Quanto você consegue guardar hoje?</p>
+        <InputMoeda
+          id="valorGuardadoPorMes"
+          label="- Quanto você pretende guardar por mês?"
+          hint="Esse valor será usado como sua meta mensal de economia."
+          value={dados.valorGuardadoPorMes}
+          onChange={(valor) => handleValorMoeda("valorGuardadoPorMes", valor)}
+        />
+
         <input
           type="range"
           name="valorGuardadoPorMes"
           min={0}
-          max={5000}
-          step={50}
+          max={metaMensalMax}
+          step={1}
           value={dados.valorGuardadoPorMes}
           onChange={handleChange}
-          className="w-full cursor-pointer accent-orange-400"
+          className="mt-3 w-full cursor-pointer accent-orange-400"
         />
-        <p className="text-center text-sm font-semibold text-green-600 mt-2">
-          {moeda(dados.valorGuardadoPorMes)}
-        </p>
+        <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
+          <span>{moeda(0)}</span>
+          <span>{moeda(metaMensalMax)}</span>
+        </div>
       </div>
 
       {/* Resultado dinâmico */}

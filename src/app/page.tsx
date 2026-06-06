@@ -1,6 +1,52 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { ADMIN_EMAIL } from "@/lib/admin";
+import { supabase } from "@/lib/supabase";
 
 export default function Home() {
+  const router = useRouter();
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    async function verificarSessao() {
+      const { data } = await supabase.auth.getSession();
+      const userEmail = data.session?.user.email;
+
+      if (cancelado) return;
+
+      if (userEmail === ADMIN_EMAIL) {
+        router.replace("/admin");
+        return;
+      }
+
+      if (data.session) {
+        router.replace("/minha-viagem");
+        return;
+      }
+
+      setCheckingSession(false);
+    }
+
+    verificarSessao();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [router]);
+
+  if (checkingSession) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+        <p className="text-sm text-gray-500">Abrindo sua viagem...</p>
+      </main>
+    );
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md text-center">

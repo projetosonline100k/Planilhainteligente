@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ADMIN_EMAIL } from "@/lib/admin";
 import { supabase } from "@/lib/supabase";
 
@@ -12,6 +12,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    async function verificarSessao() {
+      const { data } = await supabase.auth.getSession();
+      const userEmail = data.session?.user.email;
+
+      if (cancelado) return;
+
+      if (userEmail === ADMIN_EMAIL) {
+        router.replace("/admin");
+        return;
+      }
+
+      if (data.session) {
+        router.replace("/minha-viagem");
+        return;
+      }
+
+      setCheckingSession(false);
+    }
+
+    verificarSessao();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,6 +76,14 @@ export default function LoginPage() {
 
     setIsLoading(false);
     router.push("/minha-viagem");
+  }
+
+  if (checkingSession) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10">
+        <p className="text-sm text-gray-500">Verificando acesso...</p>
+      </main>
+    );
   }
 
   return (

@@ -183,18 +183,18 @@ function ModalAdicionarCapital({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900">Adicionar capital</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Adicionar capital</h2>
           <button onClick={onFechar} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">×</button>
         </div>
 
         <div>
-          <p className="text-xs text-gray-500 mb-2">Categoria</p>
+          <p className="text-base text-gray-500 mb-2">Categoria</p>
           <div className="flex flex-wrap gap-2">
             {CATEGORIAS.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setCategoria(cat.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-base font-medium transition-colors ${
                   categoria === cat.id ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
@@ -204,8 +204,8 @@ function ModalAdicionarCapital({
           </div>
         </div>
 
-        <div className="rounded-xl bg-gray-50 border border-gray-100 p-3.5 space-y-2.5">
-          <p className="text-xs text-gray-500">
+        <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 space-y-3">
+          <p className="text-base text-gray-500">
             Você está adicionando capital para{" "}
             <span className="font-semibold text-gray-800">
               {CATEGORIAS.find((c) => c.id === categoria)?.label}
@@ -213,28 +213,28 @@ function ModalAdicionarCapital({
           </p>
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <p className="text-[10px] text-gray-400">Meta</p>
-              <p className="text-xs font-semibold text-gray-900">{moeda(metaCat)}</p>
+              <p className="text-sm text-gray-400">Meta</p>
+              <p className="text-base font-semibold text-gray-900">{moeda(metaCat)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400">Reservado</p>
-              <p className="text-xs font-semibold text-green-600">{moeda(reservadoCat)}</p>
+              <p className="text-sm text-gray-400">Reservado</p>
+              <p className="text-base font-semibold text-green-600">{moeda(reservadoCat)}</p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-400">Falta</p>
-              <p className={`text-xs font-semibold ${atingiuMeta ? "text-green-600" : "text-gray-900"}`}>
+              <p className="text-sm text-gray-400">Falta</p>
+              <p className={`text-base font-semibold ${atingiuMeta ? "text-green-600" : "text-gray-900"}`}>
                 {atingiuMeta ? "—" : moeda(faltaCat)}
               </p>
             </div>
           </div>
           <div>
             <div className="flex items-center mb-1">
-              <div className="flex-1 h-1.5 rounded-full bg-gray-200 overflow-hidden mr-2">
+              <div className="flex-1 h-2 rounded-full bg-gray-200 overflow-hidden mr-2">
                 <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${progressoCat}%` }} />
               </div>
-              <span className="text-[10px] text-gray-500 shrink-0">{Math.round(progressoCat)}%</span>
+              <span className="text-sm text-gray-500 shrink-0">{Math.round(progressoCat)}%</span>
             </div>
-            <p className={`text-[11px] leading-snug ${atingiuMeta ? "text-green-600 font-medium" : "text-gray-500"}`}>
+            <p className={`text-sm leading-snug ${atingiuMeta ? "text-green-600 font-medium" : "text-gray-500"}`}>
               {atingiuMeta
                 ? "✓ Essa categoria já atingiu a meta."
                 : `Faltam ${moeda(faltaCat)} para completar essa categoria.`}
@@ -243,13 +243,13 @@ function ModalAdicionarCapital({
         </div>
 
         <div>
-          <p className="text-xs text-gray-500 mb-2">Tipo</p>
+          <p className="text-base text-gray-500 mb-2">Tipo</p>
           <div className="flex gap-2">
             {(["entrada", "saida"] as TipoMovimentacao[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTipo(t)}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                className={`flex-1 py-3 rounded-xl text-base font-medium transition-colors ${
                   tipo === t
                     ? t === "entrada" ? "bg-green-500 text-white" : "bg-red-500 text-white"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -262,9 +262,9 @@ function ModalAdicionarCapital({
         </div>
 
         <div>
-          <p className="text-xs text-gray-500 mb-2">Valor</p>
+          <p className="text-base text-gray-500 mb-2">Valor</p>
           <div className="relative">
-            <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-gray-400 text-sm">R$</span>
+            <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-gray-400 text-base">R$</span>
             <input
               type="number"
               min="0.01"
@@ -272,7 +272,7 @@ function ModalAdicionarCapital({
               value={valorStr}
               onChange={(e) => setValorStr(e.target.value)}
               placeholder="0,00"
-              className="w-full rounded-xl border border-gray-200 py-2.5 pl-10 pr-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
+              className="w-full rounded-xl border border-gray-200 py-3 pl-10 pr-3.5 text-base text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
             />
           </div>
         </div>
@@ -444,45 +444,48 @@ function NavInferior({
   const [aberto, setAberto] = useState(false);
 
   return (
-    <div className="relative border-t border-gray-100">
-      {aberto && <div className="fixed inset-0 z-10" onClick={() => setAberto(false)} />}
+    <>
+      {aberto && <div className="fixed inset-0 z-30" onClick={() => setAberto(false)} />}
+
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-sm border-t border-gray-100 bg-white/95 shadow-[0_-12px_35px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/85">
 
       {aberto && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 z-20 mb-2 w-52 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="absolute bottom-full left-1/2 z-20 mb-3 w-56 -translate-x-1/2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lg">
           <button
             onClick={() => { setAberto(false); onAdicionarCapital(); }}
-            className="w-full px-4 py-3.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            className="w-full px-4 py-4 text-left text-base text-gray-700 transition-colors hover:bg-gray-50"
           >
             Adicionar capital
           </button>
         </div>
       )}
 
-      <div className="flex items-center justify-between px-8 py-4">
+      <div className="flex items-center justify-between px-8 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4">
         <button
           onClick={() => alert("Em breve")}
-          className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+          className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-gray-600"
         >
-          <span className="text-xl">✈️</span>
-          <span className="text-[11px]">Passagens</span>
+          <span className="text-3xl leading-none">✈️</span>
+          <span className="text-base leading-tight">Passagens</span>
         </button>
 
         <button
           onClick={() => setAberto(!aberto)}
-          className={`w-12 h-12 rounded-full bg-green-500 text-white text-2xl font-medium flex items-center justify-center shadow-md hover:bg-green-600 transition-all duration-200 ${aberto ? "rotate-45" : ""}`}
+          className={`flex h-16 w-16 items-center justify-center rounded-full bg-green-500 text-4xl font-medium text-white shadow-lg transition-all duration-200 hover:bg-green-600 ${aberto ? "rotate-45" : ""}`}
         >
           +
         </button>
 
         <button
           onClick={onMeusDestinos}
-          className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+          className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-gray-600"
         >
-          <span className="text-xl">🗺️</span>
-          <span className="text-[11px]">Meus destinos</span>
+          <span className="text-3xl leading-none">🗺️</span>
+          <span className="text-base leading-tight">Meus destinos</span>
         </button>
       </div>
     </div>
+    </>
   );
 }
 
@@ -564,7 +567,7 @@ export default function MinhaViagem() {
           />
         )}
         <div className="flex min-h-dvh flex-col">
-          <div className="flex-1 px-5 py-16 text-center space-y-6">
+          <div className="flex-1 px-5 pb-36 pt-16 text-center space-y-6">
             {erro && (
               <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">
                 {erro}
@@ -654,7 +657,7 @@ export default function MinhaViagem() {
       )}
 
       {/* Conteúdo rolável */}
-      <div className="min-w-0 px-4 pt-5 pb-4 space-y-4 sm:px-5 sm:pt-6">
+      <div className="min-w-0 px-4 pt-5 pb-36 space-y-4 sm:px-5 sm:pt-6">
         {erro && (
           <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">
             {erro}

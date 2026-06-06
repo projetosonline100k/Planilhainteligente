@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Planejador Financeiro de Viagens",
-    short_name: "Viagens",
+    name: "Vaiviajar",
+    short_name: "Vaiviajar",
     description: "Planeje custos, reservas e movimentacoes da sua viagem.",
     start_url: "/",
     scope: "/",

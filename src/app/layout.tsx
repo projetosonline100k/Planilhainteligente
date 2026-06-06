@@ -16,13 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  applicationName: "Viagens",
+  applicationName: "Vaiviajar",
   title: "Planejador Financeiro de Viagens",
   description: "Descubra quanto precisa guardar por mês para realizar sua próxima viagem.",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Viagens",
+    title: "Vaiviajar",
     statusBarStyle: "default",
   },
   icons: {

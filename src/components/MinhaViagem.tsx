@@ -13,12 +13,14 @@ import {
 import { calcularPlanoViagem } from "@/lib/calculations";
 import {
   adicionarMovimentacaoRepository,
+  apagarViagemRepository,
   carregarViagemStore,
   definirViagemAtivaRepository,
 } from "@/lib/travelRepository";
 import { supabase } from "@/lib/supabase";
 
 const STORE_VAZIO: ViagemStore = { viagens: [], viagemAtivaId: null };
+const CHAVE_AVATAR = "viagem-user-avatar";
 
 // ─── Cálculo de capital reservado por categoria ───────────────────────────────
 
@@ -307,16 +309,19 @@ function ModalMeusDestinos({
   viagemAtivaId,
   onFechar,
   onSelecionar,
+  onApagar,
   onDeslogar,
 }: {
   viagens: ViagemItem[];
   viagemAtivaId: string | null;
   onFechar: () => void;
   onSelecionar: (id: string) => Promise<void>;
+  onApagar: (id: string) => Promise<void>;
   onDeslogar: () => Promise<void>;
 }) {
   const router = useRouter();
   const [selecionandoId, setSelecionandoId] = useState<string | null>(null);
+  const [apagandoId, setApagandoId] = useState<string | null>(null);
   const [deslogando, setDeslogando] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -337,6 +342,25 @@ function ModalMeusDestinos({
   function handleAdicionarOutroDestino() {
     onFechar();
     router.push("/diagnostico");
+  }
+
+  async function handleApagarViagem(id: string, destino: string) {
+    const confirmou = window.confirm(
+      `Tem certeza que deseja apagar "${destino}"? Essa acao nao pode ser desfeita.`
+    );
+
+    if (!confirmou) return;
+
+    setErro("");
+    setApagandoId(id);
+
+    try {
+      await onApagar(id);
+    } catch {
+      setErro("Nao foi possivel apagar esse destino.");
+    } finally {
+      setApagandoId(null);
+    }
   }
 
   async function handleDeslogar() {
@@ -372,9 +396,8 @@ function ModalMeusDestinos({
               const ativa = viagem.id === viagemAtivaId;
               const custoTotal = calcularPlanoViagem(viagem.dados).custoTotal;
               return (
-                <button
+                <div
                   key={viagem.id}
-                  onClick={() => handleSelecionarViagem(viagem.id)}
                   className={`w-full text-left rounded-xl border p-3.5 transition-colors ${
                     ativa
                       ? "border-blue-200 bg-blue-50"
@@ -382,7 +405,11 @@ function ModalMeusDestinos({
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => handleSelecionarViagem(viagem.id)}
+                      className="min-w-0 flex-1 text-left"
+                    >
                       <p className={`text-sm font-semibold truncate ${ativa ? "text-blue-800" : "text-gray-900"}`}>
                         {viagem.dados.destino}
                       </p>
@@ -391,19 +418,29 @@ function ModalMeusDestinos({
                         {viagem.dados.dataVolta ? ` a ${formatarDataCompleta(viagem.dados.dataVolta)}` : ""}
                       </p>
                       <p className="text-xs text-gray-500 mt-0.5">{moeda(custoTotal)}</p>
+                    </button>
+                    <div className="flex shrink-0 flex-col items-end gap-2">
+                      {ativa && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                          Ativa
+                        </span>
+                      )}
+                      {selecionandoId === viagem.id && (
+                        <span className="text-[10px] font-semibold text-gray-400">
+                          Salvando...
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleApagarViagem(viagem.id, viagem.dados.destino)}
+                        disabled={apagandoId === viagem.id}
+                        className="rounded-full bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50"
+                      >
+                        {apagandoId === viagem.id ? "Apagando..." : "Apagar"}
+                      </button>
                     </div>
-                    {ativa && (
-                      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                        Ativa
-                      </span>
-                    )}
-                    {selecionandoId === viagem.id && (
-                      <span className="shrink-0 text-[10px] font-semibold text-gray-400">
-                        Salvando...
-                      </span>
-                    )}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -447,7 +484,7 @@ function NavInferior({
     <>
       {aberto && <div className="fixed inset-0 z-30" onClick={() => setAberto(false)} />}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-sm border-t border-gray-100 bg-white/95 shadow-[0_-12px_35px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/85">
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-none border-t border-gray-100 bg-white/95 shadow-[0_-12px_35px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/85 sm:max-w-sm">
 
       {aberto && (
         <div className="absolute bottom-full left-1/2 z-20 mb-3 w-56 -translate-x-1/2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lg">
@@ -498,6 +535,10 @@ export default function MinhaViagem() {
   const [erro, setErro] = useState("");
   const [modalCapitalAberto, setModalCapitalAberto] = useState(false);
   const [modalDestinosAberto, setModalDestinosAberto] = useState(false);
+  const [avatar, setAvatar] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem(CHAVE_AVATAR);
+  });
 
   useEffect(() => {
     let cancelado = false;
@@ -532,6 +573,26 @@ export default function MinhaViagem() {
     setStore(storeAtualizado);
   }
 
+  async function handleApagarViagem(id: string) {
+    const storeAtualizado = await apagarViagemRepository(id);
+    setStore(storeAtualizado);
+  }
+
+  function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const resultado = typeof reader.result === "string" ? reader.result : null;
+      if (!resultado) return;
+
+      localStorage.setItem(CHAVE_AVATAR, resultado);
+      setAvatar(resultado);
+    };
+    reader.readAsDataURL(file);
+  }
+
   async function handleDeslogar() {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -563,6 +624,7 @@ export default function MinhaViagem() {
             viagemAtivaId={store.viagemAtivaId}
             onFechar={() => setModalDestinosAberto(false)}
             onSelecionar={handleSelecionarViagem}
+            onApagar={handleApagarViagem}
             onDeslogar={handleDeslogar}
           />
         )}
@@ -652,6 +714,7 @@ export default function MinhaViagem() {
           viagemAtivaId={store.viagemAtivaId}
           onFechar={() => setModalDestinosAberto(false)}
           onSelecionar={handleSelecionarViagem}
+          onApagar={handleApagarViagem}
           onDeslogar={handleDeslogar}
         />
       )}
@@ -675,7 +738,19 @@ export default function MinhaViagem() {
               </p>
             </div>
           </div>
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 shrink-0" />
+          <label
+            className="h-14 w-14 shrink-0 cursor-pointer overflow-hidden rounded-full bg-gradient-to-br from-teal-400 to-blue-500 bg-cover bg-center transition-transform active:scale-95"
+            style={avatar ? { backgroundImage: `url(${avatar})` } : undefined}
+            aria-label="Carregar foto de perfil"
+            title="Carregar foto"
+          >
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarChange}
+              className="sr-only"
+            />
+          </label>
         </div>
 
         {/* 2 — Próxima viagem */}

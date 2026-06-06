@@ -75,6 +75,17 @@ export function definirViagemAtiva(id: string): void {
   salvarStore({ ...store, viagemAtivaId: id });
 }
 
+export function apagarViagem(id: string): void {
+  if (typeof window === "undefined") return;
+
+  const store = carregarStore();
+  const viagens = store.viagens.filter((viagem) => viagem.id !== id);
+  const viagemAtivaId =
+    store.viagemAtivaId === id ? viagens[0]?.id ?? null : store.viagemAtivaId;
+
+  salvarStore({ viagens, viagemAtivaId });
+}
+
 // ─── Movimentações (sempre na viagem ativa) ───────────────────────────────────
 
 export function adicionarMovimentacao(mov: Movimentacao): void {

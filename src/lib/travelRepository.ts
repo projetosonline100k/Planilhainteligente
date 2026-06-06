@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import {
   adicionarMovimentacao,
   atualizarViagemAtiva,
+  apagarViagem,
   carregarStore,
   criarNovaViagem,
   definirViagemAtiva,
@@ -266,6 +267,37 @@ export async function definirViagemAtivaRepository(id: string): Promise<ViagemSt
   }
 
   setViagemAtivaRemotaId(id);
+  return carregarStoreRemoto(userId);
+}
+
+export async function apagarViagemRepository(id: string): Promise<ViagemStore> {
+  const userId = await obterUsuarioId();
+
+  if (!userId) {
+    apagarViagem(id);
+    return carregarStore();
+  }
+
+  const { error: transactionsError } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("trip_id", id)
+    .eq("user_id", userId);
+
+  if (transactionsError) throw transactionsError;
+
+  const { error: tripError } = await supabase
+    .from("trips")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (tripError) throw tripError;
+
+  if (getViagemAtivaRemotaId() === id) {
+    setViagemAtivaRemotaId(null);
+  }
+
   return carregarStoreRemoto(userId);
 }
 

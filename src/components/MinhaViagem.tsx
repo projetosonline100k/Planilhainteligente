@@ -665,18 +665,18 @@ function ModalChecklist({
           )}
         </div>
 
-        <div className="mt-4 rounded-xl border border-gray-100 bg-white p-4">
+        <div className="mt-4 rounded-2xl border border-gray-100 bg-white p-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-base font-bold text-gray-900">Meu Checklist</p>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="text-xl font-bold text-gray-900">Meu Checklist</p>
+              <p className="mt-1 text-base text-gray-500">
                 {resumoPessoal.concluidas} de {resumoPessoal.total} itens concluídos
               </p>
             </div>
             <button
               type="button"
               onClick={() => setCriandoChecklist(true)}
-              className="shrink-0 text-sm font-semibold text-green-600"
+              className="shrink-0 text-base font-semibold text-green-600"
             >
               + Criar checklist
             </button>
@@ -692,26 +692,34 @@ function ModalChecklist({
           </div>
 
           {criandoChecklist && (
-            <div className="mt-3 flex gap-2">
+            <form
+              className="mt-4 flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCriarChecklist();
+              }}
+            >
               <input
                 type="text"
                 value={novoChecklist}
                 onChange={(e) => setNovoChecklist(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter") handleCriarChecklist();
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCriarChecklist();
+                  }
                 }}
                 placeholder="Nome do checklist"
-                className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-400/20"
+                className="min-w-0 flex-1 rounded-xl border border-gray-200 px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-400/20"
                 autoFocus
               />
               <button
-                type="button"
-                onClick={handleCriarChecklist}
-                className="rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white"
+                type="submit"
+                className="rounded-xl bg-green-500 px-5 py-3 text-base font-semibold text-white"
               >
                 Criar
               </button>
-            </div>
+            </form>
           )}
 
           {estado.pessoais.length === 0 ? (
@@ -741,16 +749,16 @@ function ModalChecklist({
                     <button
                       type="button"
                       onClick={() => setChecklistAbertoId(aberto ? null : checklist.id)}
-                      className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-gray-50"
+                      className="flex w-full items-center gap-4 px-4 py-4 text-left hover:bg-gray-50"
                     >
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-xl text-green-600">
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-50 text-2xl text-green-600">
                         ▣
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-base font-bold text-gray-900">
+                        <span className="block text-lg font-bold text-gray-900">
                           {checklist.titulo}
                         </span>
-                        <span className="block text-sm text-gray-500">
+                        <span className="block text-base text-gray-500">
                           {resumo.concluidas} de {resumo.total} itens concluídos
                         </span>
                       </span>
@@ -760,22 +768,22 @@ function ModalChecklist({
                     </button>
 
                     {aberto && (
-                      <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-3">
+                      <div className="border-t border-gray-100 bg-gray-50/50 px-4 py-4">
                         {checklist.subitens.length === 0 ? (
-                          <p className="py-2 text-sm text-gray-500">
+                          <p className="py-2 text-base text-gray-500">
                             Nenhum item adicionado ainda.
                           </p>
                         ) : (
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             {checklist.subitens.map((subitem) => (
                               <button
                                 key={subitem.id}
                                 type="button"
                                 onClick={() => onAlternarSubitem(checklist.id, subitem.id)}
-                                className="flex w-full items-center gap-3 text-left"
+                                className="flex w-full items-center gap-4 py-1 text-left"
                               >
                                 <span
-                                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border text-xs font-bold ${
+                                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border text-base font-bold ${
                                     subitem.concluido
                                       ? "border-green-500 bg-green-500 text-white"
                                       : "border-gray-300 bg-white text-transparent"
@@ -784,7 +792,7 @@ function ModalChecklist({
                                   ✓
                                 </span>
                                 <span
-                                  className={`min-w-0 flex-1 text-sm ${
+                                  className={`min-w-0 flex-1 text-lg ${
                                     subitem.concluido
                                       ? "text-gray-400 line-through"
                                       : "text-gray-700"
@@ -797,7 +805,13 @@ function ModalChecklist({
                           </div>
                         )}
 
-                        <div className="mt-3 flex gap-2">
+                        <form
+                          className="mt-4 flex gap-3"
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            handleAdicionarSubitem(checklist.id);
+                          }}
+                        >
                           <input
                             type="text"
                             value={novoSubitem[checklist.id] ?? ""}
@@ -808,19 +822,22 @@ function ModalChecklist({
                               }))
                             }
                             onKeyDown={(e) => {
-                              if (e.key === "Enter") handleAdicionarSubitem(checklist.id);
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleAdicionarSubitem(checklist.id);
+                              }
                             }}
                             placeholder="Adicionar item"
-                            className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-400/20"
+                            enterKeyHint="done"
+                            className="min-w-0 flex-1 rounded-xl border border-gray-200 px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-400/20"
                           />
                           <button
-                            type="button"
-                            onClick={() => handleAdicionarSubitem(checklist.id)}
-                            className="rounded-xl bg-green-500 px-3 py-2 text-sm font-semibold text-white"
+                            type="submit"
+                            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-green-500 text-2xl font-semibold text-white"
                           >
                             +
                           </button>
-                        </div>
+                        </form>
                       </div>
                     )}
                   </div>
@@ -1646,14 +1663,7 @@ export default function MinhaViagem() {
           </div>
         </div>
 
-        {/* 3 — Meta do mês */}
-        <CardMetaMes
-          metaMensal={metaMensal}
-          guardadoMes={guardadoMesAtual}
-          onAbrirHistorico={() => setModalHistoricoAberto(true)}
-        />
-
-        {/* 4 — Resumo do orçamento */}
+        {/* 3 — Resumo do orçamento */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs uppercase tracking-widest text-gray-400">Resumo do orçamento</p>
@@ -1686,6 +1696,13 @@ export default function MinhaViagem() {
             </div>
           </div>
         </div>
+
+        {/* 4 — Meta do mês */}
+        <CardMetaMes
+          metaMensal={metaMensal}
+          guardadoMes={guardadoMesAtual}
+          onAbrirHistorico={() => setModalHistoricoAberto(true)}
+        />
 
         {/* 5 — Checklist */}
         <CardChecklist

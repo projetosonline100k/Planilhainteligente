@@ -62,13 +62,17 @@ const CHECKLIST_PADRAO: ChecklistItem[] = [
   { id: "documentos", titulo: "Documentos separados", concluido: false },
   { id: "hospedagem", titulo: "Hospedagem confirmada", concluido: false },
   { id: "passagens", titulo: "Passagens salvas", concluido: false },
-  { id: "check-in", titulo: "Fazer check-in", concluido: false },
-  { id: "mala", titulo: "Montar mala", concluido: false },
-  { id: "carregador", titulo: "Levar carregador e adaptador", concluido: false },
 ];
 
 function criarChecklistPadrao(): ChecklistItem[] {
   return CHECKLIST_PADRAO.map((item) => ({ ...item }));
+}
+
+function normalizarChecklistRecomendado(tarefas?: ChecklistItem[]): ChecklistItem[] {
+  return CHECKLIST_PADRAO.map((item) => {
+    const tarefaSalva = tarefas?.find((tarefa) => tarefa.id === item.id);
+    return { ...item, concluido: tarefaSalva?.concluido ?? false };
+  });
 }
 
 function criarEstadoChecklist(): ChecklistEstado {
@@ -150,12 +154,12 @@ function carregarChecklists(): Record<string, ChecklistEstado> {
 
     return entradas.reduce<Record<string, ChecklistEstado>>((acc, [tripId, valor]) => {
       if (Array.isArray(valor)) {
-        acc[tripId] = { recomendados: valor, pessoais: [] };
+        acc[tripId] = { recomendados: normalizarChecklistRecomendado(valor), pessoais: [] };
         return acc;
       }
 
       acc[tripId] = {
-        recomendados: valor.recomendados ?? criarChecklistPadrao(),
+        recomendados: normalizarChecklistRecomendado(valor.recomendados),
         pessoais: valor.pessoais ?? [],
       };
       return acc;
@@ -501,8 +505,8 @@ function CardChecklist({
         <p className="text-base font-bold text-gray-900">Checklist</p>
         <p className="text-sm text-gray-500">
           {resumo.total > 0
-            ? `${resumo.concluidas} de ${resumo.total} concluídos`
-            : "Nenhuma tarefa adicionada ainda"}
+            ? `2 áreas • ${resumo.concluidas} de ${resumo.total} itens`
+            : "2 áreas • nenhum item pessoal"}
         </p>
       </div>
       <span className="shrink-0 text-3xl leading-none text-gray-400">›</span>
@@ -525,20 +529,27 @@ function ModalChecklist({
   onAdicionarSubitem: (checklistId: string, titulo: string) => void;
   onAlternarSubitem: (checklistId: string, subitemId: string) => void;
 }) {
-  const [checklistAbertoId, setChecklistAbertoId] = useState<string | null>(
-    estado.pessoais[0]?.id ?? null
-  );
+  const [recomendadoAberto, setRecomendadoAberto] = useState(false);
+  const [checklistAbertoId, setChecklistAbertoId] = useState<string | null>(null);
+  const [criandoChecklist, setCriandoChecklist] = useState(false);
   const [novoChecklist, setNovoChecklist] = useState("");
   const [novoSubitem, setNovoSubitem] = useState<Record<string, string>>({});
+  const resumoGeral = resumoChecklistGeral(estado);
   const resumoRecomendado = resumoChecklist(estado.recomendados);
   const resumoPessoal = resumoSubitens(estado.pessoais);
 
   function handleCriarChecklist() {
+    if (!criandoChecklist) {
+      setCriandoChecklist(true);
+      return;
+    }
+
     const titulo = novoChecklist.trim();
     if (!titulo) return;
 
     onCriarChecklist(titulo);
     setNovoChecklist("");
+    setCriandoChecklist(false);
   }
 
   function handleAdicionarSubitem(checklistId: string) {
@@ -553,7 +564,7 @@ function ModalChecklist({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onFechar}>
       <div
-        className="max-h-[82dvh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white px-5 pb-8 pt-5 shadow-xl"
+        className="max-h-[82dvh] w-full max-w-none overflow-y-auto rounded-t-3xl bg-white px-5 pb-8 pt-5 shadow-xl sm:max-w-sm"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-5 h-1.5 w-16 rounded-full bg-gray-200" />
@@ -575,46 +586,112 @@ function ModalChecklist({
           </button>
         </div>
 
-        <div className="grid gap-3">
-          <div className="rounded-xl border border-gray-100 bg-white p-4">
-            <p className="text-base font-bold text-gray-900">Checklist recomendado</p>
-            <p className="mt-1 text-sm text-gray-500">
-              {resumoRecomendado.concluidas} de {resumoRecomendado.total} concluídos
-            </p>
-            <div className="mt-3 flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <BarraProgressoMensal percentual={resumoRecomendado.percentual} />
-              </div>
-              <span className="w-11 shrink-0 text-right text-sm text-gray-500">
-                {resumoRecomendado.percentual}%
-              </span>
+        <div className="rounded-xl border border-gray-100 bg-white p-4">
+          <p className="text-base font-bold text-gray-900">
+            {resumoGeral.concluidas} de {resumoGeral.total} itens concluídos
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <BarraProgressoMensal percentual={resumoGeral.percentual} />
             </div>
+            <span className="w-11 shrink-0 text-right text-sm text-gray-500">
+              {resumoGeral.percentual}%
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-xl border border-gray-100 bg-white">
+          <button
+            type="button"
+            onClick={() => setRecomendadoAberto((aberto) => !aberto)}
+            className="flex w-full items-center gap-3 px-4 py-4 text-left hover:bg-gray-50"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-50 text-xl text-green-600">
+              ✓
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-bold text-gray-900">
+                Vaiviajar recomenda
+              </span>
+              <span className="block text-sm text-gray-500">
+                {resumoRecomendado.concluidas} de {resumoRecomendado.total} concluídos
+              </span>
+            </span>
+            <span className="shrink-0 text-2xl leading-none text-gray-400">
+              {recomendadoAberto ? "⌃" : "⌄"}
+            </span>
+          </button>
+
+          {recomendadoAberto && (
+            <div className="border-t border-gray-100">
+              <div className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <BarraProgressoMensal percentual={resumoRecomendado.percentual} />
+                  </div>
+                  <span className="w-11 shrink-0 text-right text-sm text-gray-500">
+                    {resumoRecomendado.percentual}%
+                  </span>
+                </div>
+              </div>
+
+              {estado.recomendados.map((tarefa) => (
+                <button
+                  key={tarefa.id}
+                  type="button"
+                  onClick={() => onAlternarRecomendado(tarefa.id)}
+                  className="flex w-full items-center gap-3 border-t border-gray-100 px-4 py-3.5 text-left hover:bg-gray-50"
+                >
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-base font-bold ${
+                      tarefa.concluido
+                        ? "border-green-500 bg-green-500 text-white"
+                        : "border-gray-300 bg-white text-transparent"
+                    }`}
+                  >
+                    ✓
+                  </span>
+                  <span
+                    className={`min-w-0 flex-1 text-base ${
+                      tarefa.concluido ? "text-gray-400 line-through" : "text-gray-900"
+                    }`}
+                  >
+                    {tarefa.titulo}
+                  </span>
+                  <span className="shrink-0 text-2xl leading-none text-gray-400">›</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-xl border border-gray-100 bg-white p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-base font-bold text-gray-900">Meu Checklist</p>
+              <p className="mt-1 text-sm text-gray-500">
+                {resumoPessoal.concluidas} de {resumoPessoal.total} itens concluídos
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCriandoChecklist(true)}
+              className="shrink-0 text-sm font-semibold text-green-600"
+            >
+              + Criar checklist
+            </button>
           </div>
 
-          <div className="rounded-xl border border-gray-100 bg-white p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-base font-bold text-gray-900">Organização pessoal</p>
-                <p className="mt-1 text-sm text-gray-500">
-                  {resumoPessoal.concluidas} de {resumoPessoal.total} itens concluídos
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleCriarChecklist}
-                className="shrink-0 text-sm font-semibold text-green-600"
-              >
-                + Novo checklist
-              </button>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <BarraProgressoMensal percentual={resumoPessoal.percentual} />
             </div>
-            <div className="mt-3 flex items-center gap-3">
-              <div className="min-w-0 flex-1">
-                <BarraProgressoMensal percentual={resumoPessoal.percentual} />
-              </div>
-              <span className="w-11 shrink-0 text-right text-sm text-gray-500">
-                {resumoPessoal.percentual}%
-              </span>
-            </div>
+            <span className="w-11 shrink-0 text-right text-sm text-gray-500">
+              {resumoPessoal.percentual}%
+            </span>
+          </div>
+
+          {criandoChecklist && (
             <div className="mt-3 flex gap-2">
               <input
                 type="text"
@@ -625,6 +702,7 @@ function ModalChecklist({
                 }}
                 placeholder="Nome do checklist"
                 className="min-w-0 flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-400/20"
+                autoFocus
               />
               <button
                 type="button"
@@ -634,58 +712,26 @@ function ModalChecklist({
                 Criar
               </button>
             </div>
-          </div>
-        </div>
+          )}
 
-        <div className="mt-5">
-          <p className="mb-3 text-base font-bold text-gray-900">Recomendado pelo app</p>
-          <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
-            {estado.recomendados.map((tarefa) => (
-              <button
-                key={tarefa.id}
-                type="button"
-                onClick={() => onAlternarRecomendado(tarefa.id)}
-                className="flex w-full items-center gap-3 border-b border-gray-100 px-4 py-3.5 text-left last:border-b-0 hover:bg-gray-50"
-              >
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-base font-bold ${
-                    tarefa.concluido
-                      ? "border-green-500 bg-green-500 text-white"
-                      : "border-gray-300 bg-white text-transparent"
-                  }`}
-                >
-                  ✓
-                </span>
-                <span
-                  className={`min-w-0 flex-1 text-base ${
-                    tarefa.concluido ? "text-gray-400 line-through" : "text-gray-900"
-                  }`}
-                >
-                  {tarefa.titulo}
-                </span>
-                <span className="shrink-0 text-2xl leading-none text-gray-400">›</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-5">
-          <p className="mb-3 text-base font-bold text-gray-900">Organização pessoal</p>
           {estado.pessoais.length === 0 ? (
-            <div className="rounded-xl bg-gray-50 px-4 py-6 text-center">
+            <div className="mt-4 rounded-xl bg-gray-50 px-4 py-6 text-center">
               <p className="text-sm text-gray-500">
                 Você ainda não criou nenhum checklist pessoal.
               </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Crie uma lista para mala, compras, documentos ou qualquer outra coisa da viagem.
+              </p>
               <button
                 type="button"
-                onClick={handleCriarChecklist}
+                onClick={() => setCriandoChecklist(true)}
                 className="mt-4 rounded-full bg-green-500 px-5 py-2 text-sm font-semibold text-white"
               >
-                Criar checklist
+                + Criar checklist
               </button>
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-gray-100 bg-white">
+            <div className="mt-4 overflow-hidden rounded-xl border border-gray-100 bg-white">
               {estado.pessoais.map((checklist) => {
                 const aberto = checklistAbertoId === checklist.id;
                 const resumo = resumoSubitens([checklist]);
@@ -705,7 +751,7 @@ function ModalChecklist({
                           {checklist.titulo}
                         </span>
                         <span className="block text-sm text-gray-500">
-                          {resumo.concluidas} de {resumo.total} itens
+                          {resumo.concluidas} de {resumo.total} itens concluídos
                         </span>
                       </span>
                       <span className="shrink-0 text-2xl leading-none text-gray-400">
@@ -800,7 +846,7 @@ function ModalHistoricoMensal({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onFechar}>
       <div
-        className="max-h-[80dvh] w-full max-w-sm overflow-y-auto rounded-t-3xl bg-white px-6 pb-8 pt-5 shadow-xl"
+        className="max-h-[80dvh] w-full max-w-none overflow-y-auto rounded-t-3xl bg-white px-6 pb-8 pt-5 shadow-xl sm:max-w-sm"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mx-auto mb-5 h-1.5 w-16 rounded-full bg-gray-200" />
@@ -1607,13 +1653,7 @@ export default function MinhaViagem() {
           onAbrirHistorico={() => setModalHistoricoAberto(true)}
         />
 
-        {/* 4 — Checklist */}
-        <CardChecklist
-          estado={checklistViagem}
-          onAbrir={() => setModalChecklistAberto(true)}
-        />
-
-        {/* 5 — Resumo do orçamento */}
+        {/* 4 — Resumo do orçamento */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs uppercase tracking-widest text-gray-400">Resumo do orçamento</p>
@@ -1646,6 +1686,12 @@ export default function MinhaViagem() {
             </div>
           </div>
         </div>
+
+        {/* 5 — Checklist */}
+        <CardChecklist
+          estado={checklistViagem}
+          onAbrir={() => setModalChecklistAberto(true)}
+        />
 
         {/* 6 — Custos por categoria */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">

@@ -31,6 +31,13 @@ npm run dev
 
 Acesse [http://localhost:3000](http://localhost:3000).
 
+Para usar a estimativa de passagem com IA, configure no `.env.local`:
+
+```bash
+OPENAI_API_KEY=sua_chave_da_openai
+OPENAI_MODEL=gpt-4.1-mini
+```
+
 ## Scripts disponíveis
 
 ```bash

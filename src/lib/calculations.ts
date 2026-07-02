@@ -14,7 +14,7 @@ function calcularPeriodo(dataIda: string, hoje: Date): { dias: number; meses: nu
   const hojeLocal = inicioDoDia(hoje);
 
   const diffMs = ida.getTime() - hojeLocal.getTime();
-  const dias = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  const dias = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 
   // Meses por calendário — mínimo 1 para não dividir por zero no cálculo financeiro
   const anosD = ida.getFullYear() - hojeLocal.getFullYear();
@@ -59,7 +59,9 @@ export function calcularPlanoViagem(
       : 0;
 
   let mensagemResumo: string;
-  if (consegueViajarNaData) {
+  if (diasAteViagem === 0) {
+    mensagemResumo = `Sua viagem para ${dados.destino} e hoje.`;
+  } else if (consegueViajarNaData) {
     if (diasAteViagem < 30) {
       mensagemResumo = `Você vai para ${dados.destino}. Com base nas suas informações, precisa ter R$ ${formatarMoeda(custoTotal)} em ${pluralDia(diasAteViagem)}.`;
     } else {

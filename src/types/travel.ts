@@ -1,4 +1,5 @@
 export type DiagnosticoViagem = {
+  cidadeOrigem: string;
   destino: string;
   dataIda: string;
   dataVolta: string;
@@ -35,6 +36,8 @@ export type ViagemItem = {
   id: string;
   dados: DiagnosticoViagem;
   movimentacoes: Movimentacao[];
+  concluida: boolean;
+  dataConclusao?: string;
 };
 
 export type ViagemStore = {

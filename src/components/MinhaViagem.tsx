@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import AppLoading from "@/components/AppLoading";
 import {
   Movimentacao,
   CategoriaMovimentacao,
@@ -15,6 +16,7 @@ import {
   adicionarMovimentacaoRepository,
   apagarViagemRepository,
   carregarViagemStore,
+  concluirViagemRepository,
   definirViagemAtivaRepository,
 } from "@/lib/travelRepository";
 import { supabase } from "@/lib/supabase";
@@ -22,6 +24,7 @@ import { supabase } from "@/lib/supabase";
 const STORE_VAZIO: ViagemStore = { viagens: [], viagemAtivaId: null };
 const CHAVE_AVATAR = "viagem-user-avatar";
 const CHAVE_CHECKLIST = "viagem-checklists";
+const CHAVE_STORE_LOCAL = "viagem-store";
 
 type StatusMensal = "em_andamento" | "meta_batida" | "concluido" | "superou" | "abaixo";
 
@@ -109,6 +112,20 @@ function formatarDataCompleta(iso: string): string {
   return `${dia}/${mes}/${ano}`;
 }
 
+function dataLocal(iso: string): Date {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  return new Date(ano, mes - 1, dia);
+}
+
+function inicioDoDia(data: Date): Date {
+  return new Date(data.getFullYear(), data.getMonth(), data.getDate());
+}
+
+function compararComHoje(iso: string): number {
+  if (!iso) return 1;
+  return dataLocal(iso).getTime() - inicioDoDia(new Date()).getTime();
+}
+
 function chaveMes(data: Date): string {
   return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -166,6 +183,17 @@ function carregarChecklists(): Record<string, ChecklistEstado> {
     }, {});
   } catch {
     return {};
+  }
+}
+
+function carregarStoreLocalRapido(): ViagemStore | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = localStorage.getItem(CHAVE_STORE_LOCAL);
+    return raw ? (JSON.parse(raw) as ViagemStore) : null;
+  } catch {
+    return null;
   }
 }
 
@@ -1199,6 +1227,11 @@ function ModalMeusDestinos({
                       <p className="text-xs text-gray-500 mt-0.5">{moeda(custoTotal)}</p>
                     </button>
                     <div className="flex shrink-0 flex-col items-end gap-2">
+                      {viagem.concluida && (
+                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-green-700">
+                          Concluída
+                        </span>
+                      )}
                       {ativa && (
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
                           Ativa
@@ -1263,41 +1296,59 @@ function NavInferior({
     <>
       {aberto && <div className="fixed inset-0 z-30" onClick={() => setAberto(false)} />}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-none border-t border-gray-100 bg-white/95 shadow-[0_-12px_35px_rgba(15,23,42,0.08)] backdrop-blur supports-[backdrop-filter]:bg-white/85 sm:max-w-sm">
+      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-none border-t border-white/10 bg-[#020617]/95 shadow-[0_-16px_40px_rgba(0,0,0,0.35)] backdrop-blur supports-[backdrop-filter]:bg-[#020617]/85 sm:max-w-sm">
 
       {aberto && (
-        <div className="absolute bottom-full left-1/2 z-20 mb-3 w-56 -translate-x-1/2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lg">
+        <div className="absolute bottom-full left-1/2 z-20 mb-3 w-56 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-lg">
           <button
             onClick={() => { setAberto(false); onAdicionarCapital(); }}
-            className="w-full px-4 py-4 text-left text-base text-gray-700 transition-colors hover:bg-gray-50"
+            className="w-full px-4 py-4 text-left text-base text-white transition-colors hover:bg-white/10"
           >
             Adicionar capital
           </button>
         </div>
       )}
 
-      <div className="flex items-center justify-between px-8 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4">
+      <div className="grid grid-cols-5 items-end gap-1 px-3 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4 text-[11px] font-semibold">
         <button
           onClick={() => alert("Em breve")}
-          className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-gray-600"
+          className="flex min-w-0 flex-col items-center gap-1 text-white/45 transition-colors hover:text-cyan-300"
         >
-          <span className="text-3xl leading-none">✈️</span>
-          <span className="text-base leading-tight">Passagens</span>
+          <span className="text-2xl leading-none">✈️</span>
+          <span className="max-w-full truncate leading-tight">Passagens</span>
         </button>
+
+        <Link
+          href="/cabine"
+          prefetch
+          className="flex min-w-0 flex-col items-center gap-1 text-white/45 transition-colors hover:text-cyan-300"
+        >
+          <span className="text-2xl leading-none">▶</span>
+          <span className="max-w-full truncate leading-tight">Cabine</span>
+        </Link>
 
         <button
           onClick={() => setAberto(!aberto)}
-          className={`flex h-16 w-16 items-center justify-center rounded-full bg-green-500 text-4xl font-medium text-white shadow-lg transition-all duration-200 hover:bg-green-600 ${aberto ? "rotate-45" : ""}`}
+          className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white text-3xl font-medium text-black shadow-lg transition-all duration-200 hover:bg-cyan-100 ${aberto ? "rotate-45" : ""}`}
         >
           +
         </button>
 
+        <Link
+          href="/roteiro"
+          prefetch
+          className="flex min-w-0 flex-col items-center gap-1 text-white/45 transition-colors hover:text-cyan-300"
+        >
+          <span className="text-2xl leading-none">🧭</span>
+          <span className="max-w-full truncate leading-tight">Roteiro</span>
+        </Link>
+
         <button
           onClick={onMeusDestinos}
-          className="flex flex-col items-center gap-1 text-gray-400 transition-colors hover:text-gray-600"
+          className="flex min-w-0 flex-col items-center gap-1 text-cyan-300 transition-colors hover:text-cyan-200"
         >
-          <span className="text-3xl leading-none">🗺️</span>
-          <span className="text-base leading-tight">Meus destinos</span>
+          <span className="text-2xl leading-none">🗺️</span>
+          <span className="max-w-full truncate leading-tight">Destinos</span>
         </button>
       </div>
     </div>
@@ -1316,6 +1367,7 @@ export default function MinhaViagem() {
   const [modalDestinosAberto, setModalDestinosAberto] = useState(false);
   const [modalHistoricoAberto, setModalHistoricoAberto] = useState(false);
   const [modalChecklistAberto, setModalChecklistAberto] = useState(false);
+  const [concluindoViagem, setConcluindoViagem] = useState(false);
   const [checklists, setChecklists] = useState<Record<string, ChecklistEstado>>(() =>
     carregarChecklists()
   );
@@ -1331,6 +1383,12 @@ export default function MinhaViagem() {
       setErro("");
 
       try {
+        const storeLocal = carregarStoreLocalRapido();
+        if (storeLocal && !cancelado) {
+          setStore(storeLocal);
+          setCarregando(false);
+        }
+
         const storeCarregado = await carregarViagemStore();
         if (!cancelado) setStore(storeCarregado);
       } catch {
@@ -1360,6 +1418,20 @@ export default function MinhaViagem() {
   async function handleApagarViagem(id: string) {
     const storeAtualizado = await apagarViagemRepository(id);
     setStore(storeAtualizado);
+  }
+
+  async function handleConcluirViagem(id: string) {
+    setErro("");
+    setConcluindoViagem(true);
+
+    try {
+      const storeAtualizado = await concluirViagemRepository(id);
+      setStore(storeAtualizado);
+    } catch {
+      setErro("Nao foi possivel marcar essa viagem como concluida.");
+    } finally {
+      setConcluindoViagem(false);
+    }
   }
 
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1463,13 +1535,7 @@ export default function MinhaViagem() {
   const viagemAtiva = store.viagens.find((v) => v.id === store.viagemAtivaId) ?? null;
 
   if (carregando) {
-    return (
-      <div className="flex flex-col">
-        <div className="flex-1 px-5 py-12 text-center">
-          <p className="text-sm text-gray-400">Carregando sua viagem...</p>
-        </div>
-      </div>
-    );
+    return <AppLoading label="Carregando sua viagem" />;
   }
 
   // Estado vazio
@@ -1486,7 +1552,7 @@ export default function MinhaViagem() {
             onDeslogar={handleDeslogar}
           />
         )}
-        <div className="flex min-h-dvh flex-col">
+        <div className="flex min-h-dvh flex-col bg-[#020617] text-white">
           <div className="flex-1 px-5 pb-36 pt-16 text-center space-y-6">
             {erro && (
               <p className="rounded-xl bg-red-50 px-4 py-3 text-xs text-red-700">
@@ -1497,10 +1563,10 @@ export default function MinhaViagem() {
               ✈️
             </div>
             <div className="space-y-3">
-              <h1 className="text-2xl font-bold leading-tight text-gray-900">
+              <h1 className="text-2xl font-bold leading-tight text-white">
                 Opa, seja bem bem vindo viajante!
               </h1>
-              <p className="mx-auto max-w-xs text-base leading-relaxed text-gray-500">
+              <p className="mx-auto max-w-xs text-base leading-relaxed text-white/60">
                 Clique no botão abaixo para registrar o seu primeiro destino
               </p>
             </div>
@@ -1547,10 +1613,19 @@ export default function MinhaViagem() {
   const guardadoMesAtual = calcularGuardadoNoMes(movimentacoes, mesAtual);
   const historicoMensal = calcularHistoricoMensal(movimentacoes, metaMensal);
 
-  const tempoFaltando =
-    plano.diasAteViagem < 30
-      ? `${plano.diasAteViagem} ${plano.diasAteViagem === 1 ? "dia" : "dias"}`
-      : `${plano.mesesAteViagem} ${plano.mesesAteViagem === 1 ? "mês" : "meses"}`;
+  const diferencaDataIda = compararComHoje(dados.dataIda);
+  const viagemEhHoje = diferencaDataIda === 0;
+  const viagemPassou = diferencaDataIda < 0;
+  const devePerguntarConclusao = !viagemAtiva.concluida && (viagemEhHoje || viagemPassou);
+  const tempoFaltando = viagemAtiva.concluida
+    ? "Concluída"
+    : viagemEhHoje
+      ? "É hoje"
+      : viagemPassou
+        ? "Já passou"
+        : plano.diasAteViagem < 30
+          ? `${plano.diasAteViagem} ${plano.diasAteViagem === 1 ? "dia" : "dias"}`
+          : `${plano.mesesAteViagem} ${plano.mesesAteViagem === 1 ? "mês" : "meses"}`;
 
   const categorias = [
     { emoji: "✈️", nome: "Passagens",   meta: meta.passagem,    reservado: reservado.passagem,    cor: "bg-blue-500"   },
@@ -1560,7 +1635,7 @@ export default function MinhaViagem() {
   ];
 
   return (
-    <div className="flex w-full min-w-0 flex-col overflow-x-hidden">
+    <div className="flex w-full min-w-0 animate-[appFadeIn_220ms_ease-out] flex-col overflow-x-hidden bg-[radial-gradient(circle_at_78%_0%,rgba(14,165,233,0.34),transparent_34%),linear-gradient(180deg,#020617_0%,#020617_42%,#07111f_100%)] text-white">
 
       {modalCapitalAberto && (
         <ModalAdicionarCapital
@@ -1615,10 +1690,10 @@ export default function MinhaViagem() {
         {/* 1 — Header */}
         <div className="flex min-w-0 items-start justify-between gap-3 overflow-hidden">
           <div className="flex min-w-0 items-start gap-3">
-            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-2xl shrink-0">✈️</div>
+            <div className="w-12 h-12 rounded-full bg-cyan-300/15 flex items-center justify-center text-2xl shrink-0">✈️</div>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 leading-tight">Olá, Viajante! ✈️</h1>
-              <p className="text-base text-gray-500 leading-snug mt-1">
+              <h1 className="text-xl font-bold text-white leading-tight">Olá, Viajante! ✈️</h1>
+              <p className="text-base text-white/60 leading-snug mt-1">
                 Pronto para mais<br />uma grande viagem?
               </p>
             </div>
@@ -1644,6 +1719,11 @@ export default function MinhaViagem() {
             <div className="flex-1 min-w-0">
               <p className="text-xs uppercase tracking-widest text-gray-400">Próxima viagem</p>
               <p className="text-3xl font-bold text-gray-900 mt-1 truncate">{dados.destino}</p>
+              {dados.cidadeOrigem && (
+                <p className="text-sm text-gray-400 mt-0.5 truncate">
+                  Saindo de {dados.cidadeOrigem}
+                </p>
+              )}
               <p className="text-base text-gray-400 mt-0.5">
                 {formatarData(dados.dataIda)}
                 {dados.dataVolta ? ` a ${formatarData(dados.dataVolta)}` : ""}
@@ -1657,11 +1737,51 @@ export default function MinhaViagem() {
             </div>
             <div className="w-px bg-gray-100 self-stretch shrink-0" />
             <div className="text-right shrink-0 pl-1">
-              <p className="text-xs uppercase tracking-widest text-gray-400">Faltam</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">{tempoFaltando}</p>
+              <p className="text-xs uppercase tracking-widest text-gray-400">
+                {viagemAtiva.concluida || viagemEhHoje || viagemPassou ? "Status" : "Faltam"}
+              </p>
+              <p
+                className={`mt-1 font-bold text-gray-900 ${
+                  tempoFaltando.length > 8 ? "text-2xl" : "text-3xl"
+                }`}
+              >
+                {tempoFaltando}
+              </p>
             </div>
           </div>
         </div>
+
+        {devePerguntarConclusao && (
+          <div className="min-w-0 rounded-2xl border border-green-100 bg-green-50 p-4 shadow-sm">
+            <p className="text-sm font-semibold text-green-900">
+              {viagemEhHoje ? "Sua viagem é hoje." : "A data dessa viagem já passou."}
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-green-700">
+              A viagem para {dados.destino} foi feita?
+            </p>
+            <button
+              type="button"
+              onClick={() => handleConcluirViagem(viagemAtiva.id)}
+              disabled={concluindoViagem}
+              className={`mt-3 w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition-colors ${
+                concluindoViagem
+                  ? "cursor-not-allowed bg-green-300"
+                  : "bg-green-500 hover:bg-green-600"
+              }`}
+            >
+              {concluindoViagem ? "Marcando..." : "Sim, marcar como concluída"}
+            </button>
+          </div>
+        )}
+
+        {viagemAtiva.concluida && (
+          <div className="min-w-0 rounded-2xl border border-green-100 bg-white p-4 shadow-sm">
+            <p className="text-sm font-semibold text-green-700">Viagem concluída</p>
+            <p className="mt-1 text-sm leading-relaxed text-gray-500">
+              {dados.destino} ficou marcada como uma viagem realizada.
+            </p>
+          </div>
+        )}
 
         {/* 3 — Resumo do orçamento */}
         <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">

@@ -11,6 +11,7 @@ import {
 } from "@/lib/travelRepository";
 
 const ESTADO_INICIAL: DiagnosticoViagem = {
+  cidadeOrigem: "",
   destino: "",
   dataIda: "",
   dataVolta: "",
@@ -22,6 +23,15 @@ const ESTADO_INICIAL: DiagnosticoViagem = {
 };
 
 const META_MENSAL_MAX_PADRAO = 5000;
+
+type EstimativaPassagemResponse = {
+  valorEstimado: number;
+  faixaMinima: number;
+  faixaMaxima: number;
+  confianca: "baixa" | "media" | "alta";
+  observacao: string;
+  origem: string;
+};
 
 function moeda(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -115,7 +125,12 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
   const [dados, setDados] = useState<DiagnosticoViagem>(ESTADO_INICIAL);
   const [carregando, setCarregando] = useState(modoEdicao);
   const [salvando, setSalvando] = useState(false);
+  const [estimandoPassagem, setEstimandoPassagem] = useState(false);
+  const [estimativaPassagem, setEstimativaPassagem] = useState<EstimativaPassagemResponse | null>(
+    null
+  );
   const [erro, setErro] = useState("");
+  const [erroEstimativa, setErroEstimativa] = useState("");
 
   useEffect(() => {
     if (!modoEdicao) return;
@@ -125,7 +140,7 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
     async function carregarViagem() {
       try {
         const viagem = await obterViagemAtivaRepository();
-        if (!cancelado && viagem) setDados(viagem.dados);
+        if (!cancelado && viagem) setDados({ ...ESTADO_INICIAL, ...viagem.dados });
       } catch {
         if (!cancelado) setErro("Nao foi possivel carregar sua viagem.");
       } finally {
@@ -153,6 +168,54 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
       ...prev,
       [campo]: valor,
     }));
+    if (campo === "valorPassagem") {
+      setEstimativaPassagem(null);
+      setErroEstimativa("");
+    }
+  }
+
+  async function handleEstimarPassagem() {
+    setErroEstimativa("");
+    setEstimativaPassagem(null);
+    setEstimandoPassagem(true);
+
+    try {
+      const response = await fetch("/api/estimar-passagem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          destino: dados.destino,
+          dataIda: dados.dataIda,
+          dataVolta: dados.dataVolta,
+          origem: dados.cidadeOrigem,
+        }),
+      });
+
+      const body = (await response.json()) as Partial<EstimativaPassagemResponse> & {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        throw new Error(body.error || "Nao foi possivel estimar a passagem.");
+      }
+
+      if (typeof body.valorEstimado !== "number") {
+        throw new Error("A estimativa retornou sem valor de passagem.");
+      }
+
+      const estimativa = body as EstimativaPassagemResponse;
+      setEstimativaPassagem(estimativa);
+      setDados((prev) => ({
+        ...prev,
+        valorPassagem: estimativa.valorEstimado,
+      }));
+    } catch (error) {
+      setErroEstimativa(
+        error instanceof Error ? error.message : "Nao foi possivel estimar a passagem."
+      );
+    } finally {
+      setEstimandoPassagem(false);
+    }
   }
 
   async function handleContinuar() {
@@ -175,10 +238,13 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
   }
 
   const destinoPreenchido = dados.destino.trim() !== "";
+  const origemPreenchida = dados.cidadeOrigem.trim() !== "";
   const dataPreenchida = dados.dataIda !== "";
   const dataValida =
     dataPreenchida && dataLocal(dados.dataIda) >= inicioDoDia(new Date());
   const dataPassada = dataPreenchida && !dataValida;
+  const podeEstimarPassagem =
+    origemPreenchida && destinoPreenchido && dataValida && !estimandoPassagem;
 
   const plano = destinoPreenchido && dataValida ? calcularPlanoViagem(dados) : null;
   const podeMostrarResumo = plano !== null && plano.custoTotal > 0;
@@ -212,7 +278,20 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
         </div>
       )}
 
-      {/* Destino */}
+      {/* Origem e destino */}
+      <div>
+        <p className="text-sm text-gray-700 mb-2">- Qual sua cidade de saída?</p>
+        <input
+          name="cidadeOrigem"
+          type="text"
+          autoComplete="address-level2"
+          placeholder="Ex: São Paulo, Rio de Janeiro, Recife..."
+          value={dados.cidadeOrigem}
+          onChange={handleChange}
+          className="w-full rounded-xl border border-gray-200 px-3.5 py-3 text-base text-gray-900 placeholder:text-gray-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 transition-colors"
+        />
+      </div>
+
       <div>
         <p className="text-sm text-gray-700 mb-2">- Qual lugar você quer conhecer?</p>
         <input
@@ -272,6 +351,41 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
           value={dados.valorPassagem}
           onChange={(valor) => handleValorMoeda("valorPassagem", valor)}
         />
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3.5 py-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-medium text-blue-900">
+                Estimar passagem com IA
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-blue-700">
+                Base: ida e volta saindo da sua cidade de saída.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleEstimarPassagem}
+              disabled={!podeEstimarPassagem}
+              className={`rounded-lg px-3.5 py-2 text-xs font-semibold transition-colors ${
+                podeEstimarPassagem
+                  ? "bg-blue-600 text-white hover:bg-blue-700"
+                  : "bg-blue-100 text-blue-300 cursor-not-allowed"
+              }`}
+            >
+              {estimandoPassagem ? "Estimando..." : "Estimar"}
+            </button>
+          </div>
+          {estimativaPassagem && (
+            <p className="mt-3 text-xs leading-relaxed text-blue-800">
+              Sugestão: {moeda(estimativaPassagem.valorEstimado)}. Faixa provável entre{" "}
+              {moeda(estimativaPassagem.faixaMinima)} e{" "}
+              {moeda(estimativaPassagem.faixaMaxima)}. Confiança{" "}
+              {estimativaPassagem.confianca}. {estimativaPassagem.observacao}
+            </p>
+          )}
+          {erroEstimativa && (
+            <p className="mt-3 text-xs leading-relaxed text-red-600">{erroEstimativa}</p>
+          )}
+        </div>
         <InputMoeda
           id="valorHospedagem"
           label="- Qual o valor da hospedagem?"
@@ -373,9 +487,9 @@ export default function FormularioDiagnostico({ modoEdicao = false }: { modoEdic
       <button
         type="button"
         onClick={handleContinuar}
-        disabled={!destinoPreenchido || !dataValida || carregando || salvando}
+        disabled={!origemPreenchida || !destinoPreenchido || !dataValida || carregando || salvando}
         className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-white transition-colors ${
-          destinoPreenchido && dataValida && !carregando && !salvando
+          origemPreenchida && destinoPreenchido && dataValida && !carregando && !salvando
             ? "bg-green-500 hover:bg-green-600 cursor-pointer"
             : "bg-gray-300 cursor-not-allowed"
         }`}

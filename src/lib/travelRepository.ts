@@ -4,6 +4,7 @@ import {
   atualizarViagemAtiva,
   apagarViagem,
   carregarStore,
+  concluirViagem,
   criarNovaViagem,
   definirViagemAtiva,
   obterViagemAtiva,
@@ -18,6 +19,7 @@ import {
 } from "@/types/travel";
 
 const CHAVE_VIAGEM_ATIVA_REMOTA = "viagem-supabase-active-trip-id";
+const CHAVE_VIAGENS_CONCLUIDAS_REMOTAS = "viagem-supabase-completed-trips";
 
 type CategoriaBanco = "flight" | "lodging" | "food" | "activities";
 type TipoBanco = "income" | "expense";
@@ -83,6 +85,26 @@ function setViagemAtivaRemotaId(id: string | null): void {
   localStorage.removeItem(CHAVE_VIAGEM_ATIVA_REMOTA);
 }
 
+function getConclusoesRemotas(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = localStorage.getItem(CHAVE_VIAGENS_CONCLUIDAS_REMOTAS);
+    return raw ? (JSON.parse(raw) as Record<string, string>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function setConclusaoRemota(id: string): void {
+  if (typeof window === "undefined") return;
+  const conclusoes = getConclusoesRemotas();
+  localStorage.setItem(
+    CHAVE_VIAGENS_CONCLUIDAS_REMOTAS,
+    JSON.stringify({ ...conclusoes, [id]: new Date().toISOString() })
+  );
+}
+
 async function obterUsuarioId(): Promise<string | null> {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
@@ -90,9 +112,12 @@ async function obterUsuarioId(): Promise<string | null> {
 }
 
 function tripRowParaViagem(row: TripRow, movimentacoes: Movimentacao[]): ViagemItem {
+  const conclusoes = getConclusoesRemotas();
+
   return {
     id: row.id,
     dados: {
+      cidadeOrigem: "",
       destino: row.destination,
       dataIda: row.start_date,
       dataVolta: row.end_date ?? "",
@@ -103,6 +128,8 @@ function tripRowParaViagem(row: TripRow, movimentacoes: Movimentacao[]): ViagemI
       valorGuardadoPorMes: Number(row.monthly_saving_capacity ?? 0),
     },
     movimentacoes,
+    concluida: Boolean(conclusoes[row.id]),
+    dataConclusao: conclusoes[row.id],
   };
 }
 
@@ -298,6 +325,18 @@ export async function apagarViagemRepository(id: string): Promise<ViagemStore> {
     setViagemAtivaRemotaId(null);
   }
 
+  return carregarStoreRemoto(userId);
+}
+
+export async function concluirViagemRepository(id: string): Promise<ViagemStore> {
+  const userId = await obterUsuarioId();
+
+  if (!userId) {
+    concluirViagem(id);
+    return carregarStore();
+  }
+
+  setConclusaoRemota(id);
   return carregarStoreRemoto(userId);
 }
 

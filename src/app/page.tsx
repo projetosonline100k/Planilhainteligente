@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import AppLoading from "@/components/AppLoading";
 import { ADMIN_EMAIL } from "@/lib/admin";
 import { supabase } from "@/lib/supabase";
 
@@ -40,26 +41,22 @@ export default function Home() {
   }, [router]);
 
   if (checkingSession) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-        <p className="text-sm text-gray-500">Abrindo sua viagem...</p>
-      </main>
-    );
+    return <AppLoading label="Abrindo sua viagem" />;
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[radial-gradient(circle_at_78%_0%,rgba(14,165,233,0.34),transparent_34%),linear-gradient(180deg,#020617_0%,#020617_55%,#07111f_100%)] px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+        <h1 className="text-4xl font-black tracking-tight text-white">
           Planejador Financeiro de Viagens
         </h1>
-        <p className="mt-4 text-base text-gray-500">
+        <p className="mt-4 text-base leading-relaxed text-white/65">
           Descubra quanto precisa guardar por mês para realizar sua próxima viagem.
         </p>
         <div className="mt-8 flex justify-center">
           <Link
             href="/login"
-            className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-8 py-3 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+            className="inline-flex items-center justify-center rounded-full bg-white px-8 py-3 text-sm font-bold text-slate-950 transition-colors hover:bg-cyan-100"
           >
             Entrar
           </Link>

@@ -292,20 +292,20 @@ export default function Roteiro() {
           ))}
         </div>
 
-        <div className="mt-5 rounded-2xl bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold text-gray-900">Adicionar ao roteiro</p>
+        <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.07] p-4 shadow-sm backdrop-blur">
+          <p className="text-sm font-semibold text-white">Adicionar ao roteiro</p>
           <div className="mt-3 grid grid-cols-[1fr_6.5rem] gap-2">
             <input
               value={titulo}
               onChange={(event) => setTitulo(event.target.value)}
               placeholder="Ex: Almoço, museu, check-in..."
-              className="min-w-0 rounded-xl border border-gray-200 px-3 py-3 text-sm text-gray-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20"
+              className="min-w-0 rounded-xl border border-white/10 bg-white/10 px-3 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/20"
             />
             <input
               type="time"
               value={horario}
               onChange={(event) => setHorario(event.target.value)}
-              className="rounded-xl border border-gray-200 px-3 py-3 text-sm text-gray-900 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20"
+              className="rounded-xl border border-white/10 bg-white/10 px-3 py-3 text-sm text-white outline-none focus:border-cyan-300 focus:ring-2 focus:ring-cyan-300/20"
             />
           </div>
           <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -315,7 +315,7 @@ export default function Roteiro() {
                 type="button"
                 onClick={() => setCategoria(item)}
                 className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold ${
-                  categoria === item ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-500"
+                  categoria === item ? "bg-cyan-300 text-slate-950" : "bg-white/10 text-white/55"
                 }`}
               >
                 {item}
@@ -341,9 +341,9 @@ export default function Roteiro() {
           </div>
 
           {atividadesDoDia.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center">
-              <p className="text-sm font-semibold text-gray-700">Nada planejado ainda</p>
-              <p className="mt-1 text-xs leading-relaxed text-gray-400">
+            <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.06] px-4 py-8 text-center">
+              <p className="text-sm font-semibold text-white">Nada planejado ainda</p>
+              <p className="mt-1 text-xs leading-relaxed text-white/45">
                 Adicione reservas, passeios e horários importantes para esse dia.
               </p>
             </div>
@@ -353,13 +353,13 @@ export default function Roteiro() {
                 key={atividade.id}
                 type="button"
                 onClick={() => handleAlternar(atividade.id)}
-                className="flex w-full items-center gap-3 rounded-2xl bg-white p-4 text-left shadow-sm"
+                className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-4 text-left shadow-sm"
               >
                 <span
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-sm ${
                     atividade.concluida
-                      ? "border-green-500 bg-green-500 text-white"
-                      : "border-gray-200 text-transparent"
+                      ? "border-green-400 bg-green-500 text-white"
+                      : "border-white/20 text-transparent"
                   }`}
                 >
                   ✓
@@ -367,12 +367,12 @@ export default function Roteiro() {
                 <div className="min-w-0 flex-1">
                   <p
                     className={`truncate text-sm font-bold ${
-                      atividade.concluida ? "text-gray-400 line-through" : "text-gray-900"
+                      atividade.concluida ? "text-white/35 line-through" : "text-white"
                     }`}
                   >
                     {atividade.titulo}
                   </p>
-                  <p className="mt-1 text-xs text-gray-400">
+                  <p className="mt-1 text-xs text-white/45">
                     {atividade.horario} · {atividade.categoria}
                   </p>
                 </div>

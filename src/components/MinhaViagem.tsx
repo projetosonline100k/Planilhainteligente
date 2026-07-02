@@ -244,12 +244,12 @@ function AnelProgresso({ percentual, consegue }: { percentual: number; consegue:
   const circ = 2 * Math.PI * r;
   const p = Math.min(100, Math.max(0, percentual));
   const offset = circ * (1 - p / 100);
-  const cor = consegue ? "#22c55e" : "#f59e0b";
+  const cor = consegue ? "#22c55e" : "#38bdf8";
 
   return (
     <div className="relative h-32 w-32 shrink-0">
       <svg className="w-full h-full" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="#f3f4f6" strokeWidth="12" />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="12" />
         <circle
           cx="60" cy="60" r={r}
           fill="none" stroke={cor} strokeWidth="12" strokeLinecap="round"
@@ -258,8 +258,8 @@ function AnelProgresso({ percentual, consegue }: { percentual: number; consegue:
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-xl font-bold text-gray-900">{Math.round(p)}%</span>
-        <span className="text-xs text-gray-400 text-center leading-tight px-1">
+        <span className="text-xl font-bold text-white">{Math.round(p)}%</span>
+        <span className="text-xs text-white/45 text-center leading-tight px-1">
           reservado
         </span>
       </div>
@@ -274,8 +274,8 @@ function LegendaItem({ cor, label, valor }: { cor: string; label: string; valor:
     <div className="flex items-center gap-2">
       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${cor}`} />
       <div className="min-w-0">
-        <p className="text-sm text-gray-500 leading-tight">{label}</p>
-        <p className="text-base font-semibold text-gray-900 leading-tight">{valor}</p>
+        <p className="text-sm text-white/50 leading-tight">{label}</p>
+        <p className="text-base font-semibold text-white leading-tight">{valor}</p>
       </div>
     </div>
   );
@@ -295,15 +295,15 @@ function CardCategoria({
   const percentual = meta > 0 ? Math.min(100, (reservado / meta) * 100) : 0;
 
   return (
-    <div className="min-w-0 rounded-xl border border-gray-100 bg-white p-3.5 flex flex-col gap-2">
+    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.07] p-3.5 flex flex-col gap-2 shadow-sm">
       <span className="text-3xl leading-none">{emoji}</span>
       <div>
-        <p className="truncate text-base text-gray-500">{nome}</p>
-        <p className="text-xs text-gray-400 mt-0.5">Meta: {moeda(meta)}</p>
-        <p className="text-xl font-bold text-gray-900 leading-tight">{moeda(reservado)}</p>
-        <p className="text-base text-gray-400 leading-tight">{Math.round(percentual)}%</p>
+        <p className="truncate text-base text-white/65">{nome}</p>
+        <p className="text-xs text-white/35 mt-0.5">Meta: {moeda(meta)}</p>
+        <p className="text-xl font-bold text-white leading-tight">{moeda(reservado)}</p>
+        <p className="text-base text-white/40 leading-tight">{Math.round(percentual)}%</p>
       </div>
-      <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
+      <div className="h-1 rounded-full bg-white/10 overflow-hidden">
         <div className={`h-full ${cor} rounded-full`} style={{ width: `${percentual}%` }} />
       </div>
     </div>
@@ -337,7 +337,7 @@ function BarraProgressoMensal({ percentual }: { percentual: number }) {
   const progresso = Math.min(100, Math.max(0, percentual));
 
   return (
-    <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+    <div className="h-2 overflow-hidden rounded-full bg-white/10">
       <div
         className="h-full rounded-full bg-green-500 transition-all"
         style={{ width: `${progresso}%` }}
@@ -357,14 +357,14 @@ function CardMetaMes({
 }) {
   if (metaMensal <= 0) {
     return (
-      <div className="min-w-0 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-        <p className="text-xs uppercase tracking-widest text-gray-400">Meta do mês</p>
-        <p className="mt-3 text-base leading-relaxed text-gray-500">
+      <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.07] p-4 shadow-sm">
+        <p className="text-xs uppercase tracking-widest text-white/45">Meta do mês</p>
+        <p className="mt-3 text-base leading-relaxed text-white/60">
           Defina quanto você quer guardar por mês para acompanhar seu progresso.
         </p>
         <Link
           href="/diagnostico?editar=1"
-          className="mt-4 inline-flex rounded-full bg-gray-100 px-4 py-2 text-base font-medium text-gray-700 transition-colors hover:bg-gray-200"
+          className="mt-4 inline-flex rounded-full bg-white px-4 py-2 text-base font-semibold text-slate-950 transition-colors hover:bg-cyan-100"
         >
           Definir meta mensal
         </Link>
@@ -379,13 +379,13 @@ function CardMetaMes({
 
   return (
     <div
-      className={`min-w-0 overflow-hidden rounded-2xl border bg-white shadow-sm ${
-        bateuMeta ? "border-green-200 shadow-green-100/80" : "border-gray-100"
+      className={`min-w-0 overflow-hidden rounded-2xl border bg-white/[0.07] shadow-sm backdrop-blur ${
+        bateuMeta ? "border-green-300/30 shadow-green-950/30" : "border-white/10"
       }`}
     >
       <div className="p-4">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-xs uppercase tracking-widest text-gray-400">Meta do mês</p>
+          <p className="text-xs uppercase tracking-widest text-white/45">Meta do mês</p>
           {bateuMeta && (
             <span className="shrink-0 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-600">
               Meta batida
@@ -395,16 +395,16 @@ function CardMetaMes({
 
         <div className="mt-4 grid min-w-0 grid-cols-3 gap-2">
           <div>
-            <p className="text-sm text-gray-500 leading-tight">Meta mensal</p>
-            <p className="mt-1 text-base font-bold text-gray-900">{moeda(metaMensal)}</p>
+            <p className="text-sm text-white/50 leading-tight">Meta mensal</p>
+            <p className="mt-1 text-base font-bold text-white">{moeda(metaMensal)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 leading-tight">Guardado no mês</p>
+            <p className="text-sm text-white/50 leading-tight">Guardado no mês</p>
             <p className="mt-1 text-base font-bold text-green-600">{moeda(guardadoMes)}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-500 leading-tight">Faltam</p>
-            <p className={`mt-1 text-base font-bold ${bateuMeta ? "text-green-600" : "text-gray-900"}`}>
+            <p className="text-sm text-white/50 leading-tight">Faltam</p>
+            <p className={`mt-1 text-base font-bold ${bateuMeta ? "text-green-400" : "text-white"}`}>
               {bateuMeta ? "✓ Meta!" : moeda(faltam)}
             </p>
           </div>
@@ -412,7 +412,7 @@ function CardMetaMes({
 
         <div className="mt-4 space-y-2">
           <BarraProgressoMensal percentual={percentualLimitado} />
-          <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="flex items-center justify-between text-sm text-white/50">
             <span>
               {moeda(guardadoMes)} de {moeda(metaMensal)}
             </span>
@@ -429,12 +429,12 @@ function CardMetaMes({
       <button
         type="button"
         onClick={onAbrirHistorico}
-        className="flex w-full items-center justify-between border-t border-gray-100 px-4 py-4 text-left text-base text-gray-500 transition-colors hover:bg-gray-50"
+        className="flex w-full items-center justify-between border-t border-white/10 px-4 py-4 text-left text-base text-white/55 transition-colors hover:bg-white/10"
       >
         <span className="flex items-center gap-3">
           <span>Ver meses anteriores</span>
         </span>
-        <span className="text-2xl leading-none text-gray-400">›</span>
+        <span className="text-2xl leading-none text-white/35">›</span>
       </button>
     </div>
   );
@@ -524,20 +524,20 @@ function CardChecklist({
     <button
       type="button"
       onClick={onAbrir}
-      className="flex w-full items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-sm transition-colors hover:bg-gray-50"
+      className="flex w-full items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.07] p-4 text-left shadow-sm transition-colors hover:bg-white/10"
     >
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 border-green-500 text-2xl text-green-600">
         ✓
       </div>
       <div className="min-w-0 flex-1">
-        <p className="text-base font-bold text-gray-900">Checklist</p>
-        <p className="text-sm text-gray-500">
+        <p className="text-base font-bold text-white">Checklist</p>
+        <p className="text-sm text-white/50">
           {resumo.total > 0
             ? `2 áreas • ${resumo.concluidas} de ${resumo.total} itens`
             : "2 áreas • nenhum item pessoal"}
         </p>
       </div>
-      <span className="shrink-0 text-3xl leading-none text-gray-400">›</span>
+      <span className="shrink-0 text-3xl leading-none text-white/35">›</span>
     </button>
   );
 }
@@ -1714,34 +1714,34 @@ export default function MinhaViagem() {
         </div>
 
         {/* 2 — Próxima viagem */}
-        <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
+        <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.07] p-4 shadow-sm backdrop-blur overflow-hidden">
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-xs uppercase tracking-widest text-gray-400">Próxima viagem</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1 truncate">{dados.destino}</p>
+              <p className="text-xs uppercase tracking-widest text-white/45">Próxima viagem</p>
+              <p className="text-3xl font-bold text-white mt-1 truncate">{dados.destino}</p>
               {dados.cidadeOrigem && (
-                <p className="text-sm text-gray-400 mt-0.5 truncate">
+                <p className="text-sm text-white/45 mt-0.5 truncate">
                   Saindo de {dados.cidadeOrigem}
                 </p>
               )}
-              <p className="text-base text-gray-400 mt-0.5">
+              <p className="text-base text-white/45 mt-0.5">
                 {formatarData(dados.dataIda)}
                 {dados.dataVolta ? ` a ${formatarData(dados.dataVolta)}` : ""}
               </p>
               <Link
                 href="/diagnostico?editar=1"
-                className="inline-block mt-3 text-base bg-gray-100 hover:bg-gray-200 text-gray-600 px-4 py-1.5 rounded-full transition-colors"
+                className="inline-block mt-3 text-base bg-white/10 hover:bg-white/15 text-white px-4 py-1.5 rounded-full transition-colors"
               >
                 Editar info
               </Link>
             </div>
-            <div className="w-px bg-gray-100 self-stretch shrink-0" />
+            <div className="w-px bg-white/10 self-stretch shrink-0" />
             <div className="text-right shrink-0 pl-1">
-              <p className="text-xs uppercase tracking-widest text-gray-400">
+              <p className="text-xs uppercase tracking-widest text-white/45">
                 {viagemAtiva.concluida || viagemEhHoje || viagemPassou ? "Status" : "Faltam"}
               </p>
               <p
-                className={`mt-1 font-bold text-gray-900 ${
+                className={`mt-1 font-bold text-white ${
                   tempoFaltando.length > 8 ? "text-2xl" : "text-3xl"
                 }`}
               >
@@ -1752,11 +1752,11 @@ export default function MinhaViagem() {
         </div>
 
         {devePerguntarConclusao && (
-          <div className="min-w-0 rounded-2xl border border-green-100 bg-green-50 p-4 shadow-sm">
-            <p className="text-sm font-semibold text-green-900">
+          <div className="min-w-0 rounded-2xl border border-green-300/25 bg-green-400/10 p-4 shadow-sm">
+            <p className="text-sm font-semibold text-green-200">
               {viagemEhHoje ? "Sua viagem é hoje." : "A data dessa viagem já passou."}
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-green-700">
+            <p className="mt-1 text-sm leading-relaxed text-white/65">
               A viagem para {dados.destino} foi feita?
             </p>
             <button
@@ -1775,33 +1775,33 @@ export default function MinhaViagem() {
         )}
 
         {viagemAtiva.concluida && (
-          <div className="min-w-0 rounded-2xl border border-green-100 bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-green-700">Viagem concluída</p>
-            <p className="mt-1 text-sm leading-relaxed text-gray-500">
+          <div className="min-w-0 rounded-2xl border border-green-300/25 bg-green-400/10 p-4 shadow-sm">
+            <p className="text-sm font-semibold text-green-200">Viagem concluída</p>
+            <p className="mt-1 text-sm leading-relaxed text-white/65">
               {dados.destino} ficou marcada como uma viagem realizada.
             </p>
           </div>
         )}
 
         {/* 3 — Resumo do orçamento */}
-        <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
+        <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.07] p-4 shadow-sm backdrop-blur overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs uppercase tracking-widest text-gray-400">Resumo do orçamento</p>
-            <Link href="/diagnostico?editar=1" className="text-base text-blue-500 hover:text-blue-600">Editar</Link>
+            <p className="text-xs uppercase tracking-widest text-white/45">Resumo do orçamento</p>
+            <Link href="/diagnostico?editar=1" className="text-base text-cyan-300 hover:text-cyan-200">Editar</Link>
           </div>
 
           <div className="grid min-w-0 grid-cols-3 gap-2 mb-4">
             <div>
-              <p className="text-xs text-gray-400 leading-tight">Orçamento total</p>
-              <p className="text-base font-bold text-gray-900 mt-0.5">{moeda(plano.custoTotal)}</p>
+              <p className="text-xs text-white/45 leading-tight">Orçamento total</p>
+              <p className="text-base font-bold text-white mt-0.5">{moeda(plano.custoTotal)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 leading-tight">Reservado</p>
-              <p className="text-base font-bold text-green-600 mt-0.5">{moeda(totalReservado)}</p>
+              <p className="text-xs text-white/45 leading-tight">Reservado</p>
+              <p className="text-base font-bold text-green-400 mt-0.5">{moeda(totalReservado)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 leading-tight">Restante</p>
-              <p className={`text-base font-bold mt-0.5 ${restante === 0 ? "text-green-500" : "text-gray-900"}`}>
+              <p className="text-xs text-white/45 leading-tight">Restante</p>
+              <p className={`text-base font-bold mt-0.5 ${restante === 0 ? "text-green-400" : "text-white"}`}>
                 {restante === 0 ? "✓ Meta!" : moeda(restante)}
               </p>
             </div>
@@ -1810,9 +1810,9 @@ export default function MinhaViagem() {
           <div className="flex min-w-0 items-center gap-4">
             <AnelProgresso percentual={percentualReservado} consegue={plano.consegueViajarNaData} />
             <div className="space-y-2.5 flex-1 min-w-0">
-              <LegendaItem cor="bg-blue-500"  label="Orçamento total" valor={moeda(plano.custoTotal)} />
+              <LegendaItem cor="bg-cyan-400"  label="Orçamento total" valor={moeda(plano.custoTotal)} />
               <LegendaItem cor="bg-green-500" label="Reservado"        valor={moeda(totalReservado)} />
-              <LegendaItem cor="bg-gray-200"  label="Restante"         valor={moeda(restante)} />
+              <LegendaItem cor="bg-white/25"  label="Restante"         valor={moeda(restante)} />
             </div>
           </div>
         </div>
@@ -1831,8 +1831,8 @@ export default function MinhaViagem() {
         />
 
         {/* 6 — Custos por categoria */}
-        <div className="min-w-0 rounded-2xl bg-white border border-gray-100 shadow-sm p-4 overflow-hidden">
-          <p className="text-xs uppercase tracking-widest text-gray-400 mb-3">Custos por categoria</p>
+        <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.07] p-4 shadow-sm backdrop-blur overflow-hidden">
+          <p className="text-xs uppercase tracking-widest text-white/45 mb-3">Custos por categoria</p>
           <div className="grid max-w-full grid-cols-2 gap-3 sm:flex sm:overflow-x-auto sm:overscroll-x-contain sm:pb-1">
             {categorias.map((cat) => (
               <CardCategoria key={cat.nome} {...cat} />

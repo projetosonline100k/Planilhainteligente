@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       return Response.json(
-        { error: "Configure OPENAI_API_KEY no .env.local para estimar passagens." },
+        { error: "Estimativa indisponivel: configure OPENAI_API_KEY nas variaveis de ambiente do servidor." },
         { status: 503 }
       );
     }

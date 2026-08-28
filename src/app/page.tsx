@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import AppLoading from "@/components/AppLoading";
-import { ADMIN_EMAIL } from "@/lib/admin";
+import { isAdminEmail } from "@/lib/admin";
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
@@ -20,7 +20,7 @@ export default function Home() {
 
       if (cancelado) return;
 
-      if (userEmail === ADMIN_EMAIL) {
+      if (isAdminEmail(userEmail)) {
         router.replace("/admin");
         return;
       }

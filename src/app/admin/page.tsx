@@ -2,78 +2,152 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
-import { ADMIN_EMAIL } from "@/lib/admin";
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import { isAdminEmail } from "@/lib/admin";
 import AppLoading from "@/components/AppLoading";
 import { supabase } from "@/lib/supabase";
+
+type Usuario = {
+  id: string;
+  email?: string;
+  createdAt?: string;
+  lastSignInAt?: string;
+};
+
+function formatarData(data?: string): string {
+  if (!data) return "Ainda não acessou";
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+    new Date(data)
+  );
+}
 
 export default function AdminPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [prompt, setPrompt] = useState("");
+  const [totalUsuarios, setTotalUsuarios] = useState<number | null>(null);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [isChecking, setIsChecking] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isSavingUser, setIsSavingUser] = useState(false);
+  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+
+  const getHeaders = useCallback(async (): Promise<HeadersInit | null> => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    return token ? { Authorization: `Bearer ${token}` } : null;
+  }, []);
+
+  const carregarPainel = useCallback(async () => {
+    const headers = await getHeaders();
+    if (!headers) {
+      router.replace("/login");
+      return;
+    }
+
+    setIsLoadingData(true);
+    const [usuariosResponse, promptResponse] = await Promise.all([
+      fetch("/api/admin/users", { headers }),
+      fetch("/api/admin/flight-prompt", { headers }),
+    ]);
+    const usuariosBody = (await usuariosResponse.json()) as { total?: number; users?: Usuario[]; error?: string };
+    const promptBody = (await promptResponse.json()) as { prompt?: string; updatedAt?: string | null; error?: string };
+
+    if (usuariosResponse.ok) {
+      setTotalUsuarios(usuariosBody.total ?? 0);
+      setUsuarios(usuariosBody.users ?? []);
+    } else {
+      setError(usuariosBody.error ?? "Não foi possível carregar os usuários.");
+    }
+
+    if (promptResponse.ok && promptBody.prompt) {
+      setPrompt(promptBody.prompt);
+      setUpdatedAt(promptBody.updatedAt ?? null);
+    } else {
+      setError((atual) => atual || promptBody.error || "Não foi possível carregar o prompt.");
+    }
+
+    setIsLoadingData(false);
+  }, [getHeaders, router]);
 
   useEffect(() => {
     let cancelado = false;
 
     async function verificarAdmin() {
       const { data } = await supabase.auth.getUser();
-
       if (cancelado) return;
-
-      if (data.user?.email !== ADMIN_EMAIL) {
+      if (!isAdminEmail(data.user?.email)) {
         router.replace("/login");
         return;
       }
-
       setIsChecking(false);
+      void carregarPainel();
     }
 
-    verificarAdmin();
-
+    void verificarAdmin();
     return () => {
       cancelado = true;
     };
-  }, [router]);
+  }, [carregarPainel, router]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleCriarUsuario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("");
     setError("");
-    setIsSaving(true);
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-
-    if (!token) {
-      setIsSaving(false);
-      setError("Sessao expirada. Entre novamente.");
+    setIsSavingUser(true);
+    const headers = await getHeaders();
+    if (!headers) {
+      setIsSavingUser(false);
+      setError("Sessão expirada. Entre novamente.");
       return;
     }
 
     const response = await fetch("/api/admin/users", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-
     const result = (await response.json()) as { error?: string; user?: { email?: string } };
-    setIsSaving(false);
-
+    setIsSavingUser(false);
     if (!response.ok) {
-      setError(result.error ?? "Nao foi possivel criar o usuario.");
+      setError(result.error ?? "Não foi possível criar o usuário.");
+      return;
+    }
+    setStatus(`Usuário ${result.user?.email ?? email} criado com sucesso.`);
+    setEmail("");
+    setPassword("");
+    void carregarPainel();
+  }
+
+  async function handleSalvarPrompt(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setStatus("");
+    setError("");
+    setIsSavingPrompt(true);
+    const headers = await getHeaders();
+    if (!headers) {
+      setIsSavingPrompt(false);
+      setError("Sessão expirada. Entre novamente.");
       return;
     }
 
-    setStatus(`Usuario ${result.user?.email ?? email} criado com sucesso.`);
-    setEmail("");
-    setPassword("");
+    const response = await fetch("/api/admin/flight-prompt", {
+      method: "PUT",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
+    });
+    const result = (await response.json()) as { error?: string; updatedAt?: string };
+    setIsSavingPrompt(false);
+    if (!response.ok) {
+      setError(result.error ?? "Não foi possível salvar o prompt.");
+      return;
+    }
+    setUpdatedAt(result.updatedAt ?? new Date().toISOString());
+    setStatus("Prompt de passagens atualizado com sucesso.");
   }
 
   async function handleSair() {
@@ -81,77 +155,53 @@ export default function AdminPage() {
     router.replace("/login");
   }
 
-  if (isChecking) {
-    return <AppLoading label="Verificando acesso" />;
-  }
+  if (isChecking) return <AppLoading label="Verificando acesso" />;
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_78%_0%,rgba(14,165,233,0.34),transparent_34%),linear-gradient(180deg,#020617_0%,#020617_55%,#07111f_100%)] px-4 py-10">
-      <section className="w-full max-w-sm">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_78%_0%,rgba(14,165,233,0.34),transparent_34%),linear-gradient(180deg,#020617_0%,#020617_55%,#07111f_100%)] px-4 py-8 text-slate-900">
+      <section className="mx-auto w-full max-w-5xl">
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-sm font-medium text-cyan-200 hover:text-cyan-100">
-            Início
-          </Link>
-          <button
-            type="button"
-            onClick={handleSair}
-            className="text-sm font-medium text-red-600 hover:text-red-700"
-          >
-            Sair
-          </button>
+          <Link href="/" className="text-sm font-medium text-cyan-200 hover:text-cyan-100">Início</Link>
+          <button type="button" onClick={handleSair} className="text-sm font-medium text-red-300 hover:text-red-200">Sair</button>
         </div>
 
-        <div className="mt-6 rounded-3xl border border-white/10 bg-white p-6 shadow-xl shadow-black/20">
-          <h1 className="text-2xl font-bold text-gray-900">Admin</h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Adicione usuários que poderão acessar o planejador.
-          </p>
+        <header className="mt-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-cyan-300">Área restrita</p>
+          <h1 className="mt-2 text-3xl font-black text-white">Painel administrativo</h1>
+          <p className="mt-2 text-sm text-slate-300">Gerencie os acessos e as instruções do assistente de passagens.</p>
+        </header>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">Email do usuário</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-                autoComplete="email"
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              />
-            </label>
+        {(error || status) && <p className={`mt-6 rounded-xl px-4 py-3 text-sm ${error ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>{error || status}</p>}
 
-            <label className="block">
-              <span className="text-sm font-medium text-gray-700">Senha inicial</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-                minLength={6}
-                autoComplete="new-password"
-                className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
-              />
-            </label>
+        <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="space-y-6">
+            <article className="rounded-3xl border border-white/10 bg-white p-6 shadow-xl shadow-black/20">
+              <p className="text-sm font-medium text-slate-500">Usuários cadastrados</p>
+              <p className="mt-2 text-4xl font-black text-slate-950">{isLoadingData || totalUsuarios === null ? "…" : totalUsuarios}</p>
+              <p className="mt-2 text-sm text-slate-500">Total de contas com acesso ao planejador.</p>
+            </article>
 
-            {error && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-            )}
+            <article className="rounded-3xl border border-white/10 bg-white p-6 shadow-xl shadow-black/20">
+              <h2 className="text-xl font-bold">Cadastrar usuário</h2>
+              <p className="mt-1 text-sm text-slate-500">Crie uma conta já confirmada, pronta para entrar.</p>
+              <form onSubmit={handleCriarUsuario} className="mt-5 space-y-4">
+                <label className="block"><span className="text-sm font-medium text-slate-700">E-mail</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /></label>
+                <label className="block"><span className="text-sm font-medium text-slate-700">Senha inicial</span><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} autoComplete="new-password" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /></label>
+                <button type="submit" disabled={isSavingUser} className="w-full rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300">{isSavingUser ? "Criando…" : "Adicionar usuário"}</button>
+              </form>
+            </article>
+          </div>
 
-            {status && (
-              <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-                {status}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="w-full rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {isSaving ? "Criando..." : "Adicionar usuário"}
-            </button>
-          </form>
+          <article className="rounded-3xl border border-white/10 bg-white p-6 shadow-xl shadow-black/20">
+            <div className="flex flex-wrap items-baseline justify-between gap-2"><div><h2 className="text-xl font-bold">Prompt de passagens</h2><p className="mt-1 text-sm text-slate-500">Estas instruções serão usadas na próxima consulta do assistente.</p></div>{updatedAt && <span className="text-xs text-slate-400">Atualizado: {formatarData(updatedAt)}</span>}</div>
+            <form onSubmit={handleSalvarPrompt} className="mt-5"><label className="block"><span className="sr-only">Instruções do assistente de passagens</span><textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} required maxLength={20_000} rows={22} className="w-full rounded-xl border border-slate-300 p-3 font-mono text-xs leading-relaxed outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100" /></label><div className="mt-3 flex items-center justify-between gap-3"><span className="text-xs text-slate-400">{prompt.length.toLocaleString("pt-BR")} / 20.000 caracteres</span><button type="submit" disabled={isSavingPrompt || !prompt.trim()} className="rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300">{isSavingPrompt ? "Salvando…" : "Salvar prompt"}</button></div></form>
+          </article>
         </div>
+
+        <article className="mt-6 rounded-3xl border border-white/10 bg-white p-6 shadow-xl shadow-black/20">
+          <h2 className="text-xl font-bold">Usuários cadastrados</h2>
+          <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[36rem] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><tr><th className="pb-3 font-semibold">E-mail</th><th className="pb-3 font-semibold">Cadastro</th><th className="pb-3 font-semibold">Último acesso</th></tr></thead><tbody>{usuarios.map((usuario) => <tr key={usuario.id} className="border-b border-slate-100 last:border-0"><td className="py-3 font-medium text-slate-800">{usuario.email ?? "Sem e-mail"}</td><td className="py-3 text-slate-500">{formatarData(usuario.createdAt)}</td><td className="py-3 text-slate-500">{formatarData(usuario.lastSignInAt)}</td></tr>)}{!isLoadingData && usuarios.length === 0 && <tr><td colSpan={3} className="py-5 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>}</tbody></table></div>
+        </article>
       </section>
     </main>
   );

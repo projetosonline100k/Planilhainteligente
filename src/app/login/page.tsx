@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
-import { ADMIN_EMAIL } from "@/lib/admin";
+import { isAdminEmail } from "@/lib/admin";
 import AppLoading from "@/components/AppLoading";
 import { supabase } from "@/lib/supabase";
 
@@ -24,7 +24,7 @@ export default function LoginPage() {
 
       if (cancelado) return;
 
-      if (userEmail === ADMIN_EMAIL) {
+      if (isAdminEmail(userEmail)) {
         router.replace("/admin");
         return;
       }
@@ -69,7 +69,7 @@ export default function LoginPage() {
       return;
     }
 
-    if (userEmail === ADMIN_EMAIL) {
+    if (isAdminEmail(userEmail)) {
       setIsLoading(false);
       router.push("/admin");
       return;

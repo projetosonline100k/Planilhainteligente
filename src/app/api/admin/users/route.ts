@@ -1,30 +1,49 @@
-import { createClient } from "@supabase/supabase-js";
-import { ADMIN_EMAIL } from "@/lib/admin";
+import { authorizeAdmin, createAdminClient } from "@/lib/adminServer";
 
-function getEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Variavel ${name} nao configurada.`);
-  return value;
+const USERS_PER_PAGE = 1_000;
+
+export async function GET(request: Request) {
+  try {
+    const authorization = await authorizeAdmin(request);
+    if ("error" in authorization) {
+      return Response.json({ error: authorization.error }, { status: authorization.status });
+    }
+
+    const adminClient = createAdminClient();
+    const users = [] as Awaited<ReturnType<typeof adminClient.auth.admin.listUsers>> extends {
+      data: { users: infer T };
+    }
+      ? T
+      : never;
+
+    for (let page = 1; ; page += 1) {
+      const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage: USERS_PER_PAGE });
+      if (error) return Response.json({ error: error.message }, { status: 400 });
+
+      users.push(...data.users);
+      if (data.users.length < USERS_PER_PAGE) break;
+    }
+
+    return Response.json({
+      total: users.length,
+      users: users.slice(0, 10).map((user) => ({
+        id: user.id,
+        email: user.email,
+        createdAt: user.created_at,
+        lastSignInAt: user.last_sign_in_at,
+      })),
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro inesperado.";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
-    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-    if (!token) {
-      return Response.json({ error: "Sessao nao encontrada." }, { status: 401 });
-    }
-
-    const supabaseUrl = getEnv("NEXT_PUBLIC_SUPABASE_URL");
-    const supabaseAnonKey = getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-    const supabaseServiceRoleKey = getEnv("SUPABASE_SERVICE_ROLE_KEY");
-
-    const authClient = createClient(supabaseUrl, supabaseAnonKey);
-    const { data: userData, error: userError } = await authClient.auth.getUser(token);
-
-    if (userError || userData.user?.email !== ADMIN_EMAIL) {
-      return Response.json({ error: "Acesso negado." }, { status: 403 });
+    const authorization = await authorizeAdmin(request);
+    if ("error" in authorization) {
+      return Response.json({ error: authorization.error }, { status: authorization.status });
     }
 
     const body = (await request.json()) as { email?: string; password?: string };
@@ -38,12 +57,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const adminClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const adminClient = createAdminClient();
 
     const { data, error } = await adminClient.auth.admin.createUser({
       email,

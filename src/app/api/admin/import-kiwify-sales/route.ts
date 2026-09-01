@@ -49,12 +49,6 @@ function accessFromStatus(status?: string): AccessStatus {
   return "inactive";
 }
 
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
-}
-
 async function getAccessToken(): Promise<string> {
   const response = await fetch(`${KIWIFY_API_URL}/oauth/token`, {
     method: "POST",
@@ -112,86 +106,89 @@ export async function POST(request: Request) {
     const authorization = await authorizeAdmin(request);
     if ("error" in authorization) return Response.json({ error: authorization.error }, { status: authorization.status });
 
+    const input = (await request.json().catch(() => ({}))) as { startDate?: string; endDate?: string };
+    const periodStart = input.startDate ? new Date(input.startDate) : IMPORT_START;
+    const now = new Date();
+    const periodEnd = input.endDate ? new Date(input.endDate) : now;
+    if (Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime()) || periodStart > periodEnd) {
+      return Response.json({ error: "Periodo de importacao invalido." }, { status: 400 });
+    }
+    if (periodEnd.getTime() - periodStart.getTime() > 90 * 24 * 60 * 60 * 1_000) {
+      return Response.json({ error: "O periodo maximo para importar e de 90 dias." }, { status: 400 });
+    }
+
     const token = await getAccessToken();
     const admin = createAdminClient();
     const usersByEmail = await getUsersByEmail();
-    const now = new Date();
-    let periodStart = IMPORT_START;
     let imported = 0;
     let activated = 0;
     let blocked = 0;
     let ignored = 0;
 
-    while (periodStart <= now) {
-      const periodEnd = new Date(Math.min(addDays(periodStart, 90).getTime() - 1, now.getTime()));
+    for (let page = 1; ; page += 1) {
+      const sales = await listSales(token, periodStart, periodEnd, page);
+      if (sales.length === 0) break;
 
-      for (let page = 1; ; page += 1) {
-        const sales = await listSales(token, periodStart, periodEnd, page);
-        if (sales.length === 0) break;
+      const records: Array<Record<string, unknown>> = [];
+      for (const sale of sales) {
+        const orderId = sale.id?.trim();
+        const email = normalize(sale.customer?.email);
+        const productName = sale.product?.name?.trim();
+        if (!orderId || !email || !productName || !sameProduct(productName)) {
+          ignored += 1;
+          continue;
+        }
 
-        const records: Array<Record<string, unknown>> = [];
-        for (const sale of sales) {
-          const orderId = sale.id?.trim();
-          const email = normalize(sale.customer?.email);
-          const productName = sale.product?.name?.trim();
-          if (!orderId || !email || !productName || !sameProduct(productName)) {
-            ignored += 1;
-            continue;
-          }
-
-          const accessStatus = accessFromStatus(sale.status);
-          let user = usersByEmail.get(email);
-          if (accessStatus === "active") {
-            if (user) {
-              const { error } = await admin.auth.admin.updateUserById(user.id, { ban_duration: "none" });
-              if (error) throw error;
-            } else {
-              const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-                redirectTo: new URL("/definir-senha", APP_URL).toString(),
-                data: { full_name: sale.customer?.name?.trim() || undefined },
-              });
-              if (error) throw error;
-              if (data.user) {
-                user = { id: data.user.id };
-                usersByEmail.set(email, user);
-              }
-            }
-            activated += 1;
-          } else if (accessStatus === "blocked" && user) {
-            const { error } = await admin.auth.admin.updateUserById(user.id, { ban_duration: "876000h" });
+        const accessStatus = accessFromStatus(sale.status);
+        let user = usersByEmail.get(email);
+        if (accessStatus === "active") {
+          if (user) {
+            const { error } = await admin.auth.admin.updateUserById(user.id, { ban_duration: "none" });
             if (error) throw error;
-            blocked += 1;
+          } else {
+            const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+              redirectTo: new URL("/definir-senha", APP_URL).toString(),
+              data: { full_name: sale.customer?.name?.trim() || undefined },
+            });
+            if (error) throw error;
+            if (data.user) {
+              user = { id: data.user.id };
+              usersByEmail.set(email, user);
+            }
           }
-
-          records.push({
-            order_id: orderId,
-            customer_email: email,
-            customer_name: sale.customer?.name?.trim() || null,
-            product_id: sale.product?.id?.trim() || null,
-            product_name: productName,
-            event_type: "historical_import",
-            order_status: sale.status?.trim() || "unknown",
-            access_status: accessStatus,
-            amount_cents: sale.payment?.charge_amount ?? sale.net_amount ?? null,
-            currency: sale.payment?.charge_currency?.trim() || sale.currency?.trim() || "BRL",
-            auth_user_id: user?.id ?? null,
-            purchased_at: sale.approved_date || sale.created_at || sale.updated_at || new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-        }
-
-        if (records.length > 0) {
-          const { error } = await admin.from("kiwify_sales").upsert(records, { onConflict: "order_id" });
+          activated += 1;
+        } else if (accessStatus === "blocked" && user) {
+          const { error } = await admin.auth.admin.updateUserById(user.id, { ban_duration: "876000h" });
           if (error) throw error;
-          imported += records.length;
+          blocked += 1;
         }
-        if (sales.length < PAGE_SIZE) break;
+
+        records.push({
+          order_id: orderId,
+          customer_email: email,
+          customer_name: sale.customer?.name?.trim() || null,
+          product_id: sale.product?.id?.trim() || null,
+          product_name: productName,
+          event_type: "historical_import",
+          order_status: sale.status?.trim() || "unknown",
+          access_status: accessStatus,
+          amount_cents: sale.payment?.charge_amount ?? sale.net_amount ?? null,
+          currency: sale.payment?.charge_currency?.trim() || sale.currency?.trim() || "BRL",
+          auth_user_id: user?.id ?? null,
+          purchased_at: sale.approved_date || sale.created_at || sale.updated_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       }
 
-      periodStart = addDays(periodStart, 90);
+      if (records.length > 0) {
+        const { error } = await admin.from("kiwify_sales").upsert(records, { onConflict: "order_id" });
+        if (error) throw error;
+        imported += records.length;
+      }
+      if (sales.length < PAGE_SIZE) break;
     }
 
-    return Response.json({ imported, activated, blocked, ignored });
+    return Response.json({ imported, activated, blocked, ignored, periodStart, periodEnd });
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "Erro inesperado ao importar as vendas." },

@@ -32,6 +32,12 @@ function formatarData(data?: string): string {
   );
 }
 
+function adicionarDias(data: Date, dias: number): Date {
+  const resultado = new Date(data);
+  resultado.setUTCDate(resultado.getUTCDate() + dias);
+  return resultado;
+}
+
 export default function AdminPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -179,15 +185,35 @@ export default function AdminPage() {
       return;
     }
 
-    const response = await fetch("/api/admin/import-kiwify-sales", { method: "POST", headers });
-    const result = (await response.json()) as { imported?: number; activated?: number; blocked?: number; error?: string };
-    setIsImportingSales(false);
-    if (!response.ok) {
-      setError(result.error ?? "Nao foi possivel importar as vendas.");
-      return;
+    const agora = new Date();
+    let inicio = new Date("2020-01-01T00:00:00.000Z");
+    let totalImportado = 0;
+    let totalAtivado = 0;
+    let totalBloqueado = 0;
+
+    try {
+      while (inicio <= agora) {
+        const fim = new Date(Math.min(adicionarDias(inicio, 90).getTime() - 1, agora.getTime()));
+        setStatus(`Importando vendas de ${inicio.toLocaleDateString("pt-BR")} ate ${fim.toLocaleDateString("pt-BR")}…`);
+        const response = await fetch("/api/admin/import-kiwify-sales", {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ startDate: inicio.toISOString(), endDate: fim.toISOString() }),
+        });
+        const result = (await response.json()) as { imported?: number; activated?: number; blocked?: number; error?: string };
+        if (!response.ok) throw new Error(result.error ?? "Nao foi possivel importar as vendas.");
+        totalImportado += result.imported ?? 0;
+        totalAtivado += result.activated ?? 0;
+        totalBloqueado += result.blocked ?? 0;
+        inicio = adicionarDias(inicio, 90);
+      }
+      setStatus(`${totalImportado} vendas importadas. ${totalAtivado} acessos liberados e ${totalBloqueado} bloqueados.`);
+      void carregarPainel();
+    } catch (importError) {
+      setError(importError instanceof Error ? importError.message : "Nao foi possivel importar as vendas.");
+    } finally {
+      setIsImportingSales(false);
     }
-    setStatus(`${result.imported ?? 0} vendas importadas. ${result.activated ?? 0} acessos liberados e ${result.blocked ?? 0} bloqueados.`);
-    void carregarPainel();
   }
 
   async function handleSair() {

@@ -6,6 +6,9 @@ create table if not exists public.app_settings (
 
 alter table public.app_settings enable row level security;
 
+grant usage on schema public to service_role;
+grant select, insert, update, delete on table public.app_settings to service_role;
+
 create policy "settings are managed only by service role"
   on public.app_settings
   for all

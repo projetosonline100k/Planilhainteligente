@@ -26,12 +26,17 @@ export async function GET(request: Request) {
 
     return Response.json({
       total: users.length,
-      users: users.slice(0, 10).map((user) => ({
-        id: user.id,
-        email: user.email,
-        createdAt: user.created_at,
-        lastSignInAt: user.last_sign_in_at,
-      })),
+      users: users
+        .sort(
+          (first, second) =>
+            new Date(second.created_at).getTime() - new Date(first.created_at).getTime()
+        )
+        .map((user) => ({
+          id: user.id,
+          email: user.email,
+          createdAt: user.created_at,
+          lastSignInAt: user.last_sign_in_at,
+        })),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro inesperado.";

@@ -14,6 +14,17 @@ type Usuario = {
   lastSignInAt?: string;
 };
 
+type MetricasVendas = {
+  approvedSales: number;
+  activeCustomers: number;
+  revenueCents: number;
+  newCustomers30Days: number;
+};
+
+function moedaCentavos(valor: number): string {
+  return (valor / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 function formatarData(data?: string): string {
   if (!data) return "Ainda não acessou";
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
@@ -28,6 +39,7 @@ export default function AdminPage() {
   const [prompt, setPrompt] = useState("");
   const [totalUsuarios, setTotalUsuarios] = useState<number | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [metricas, setMetricas] = useState<MetricasVendas | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -50,12 +62,14 @@ export default function AdminPage() {
     }
 
     setIsLoadingData(true);
-    const [usuariosResponse, promptResponse] = await Promise.all([
+    const [usuariosResponse, promptResponse, metricasResponse] = await Promise.all([
       fetch("/api/admin/users", { headers }),
       fetch("/api/admin/flight-prompt", { headers }),
+      fetch("/api/admin/sales-metrics", { headers }),
     ]);
     const usuariosBody = (await usuariosResponse.json()) as { total?: number; users?: Usuario[]; error?: string };
     const promptBody = (await promptResponse.json()) as { prompt?: string; updatedAt?: string | null; error?: string };
+    const metricasBody = (await metricasResponse.json()) as MetricasVendas & { error?: string };
 
     if (usuariosResponse.ok) {
       setTotalUsuarios(usuariosBody.total ?? 0);
@@ -70,6 +84,7 @@ export default function AdminPage() {
     } else {
       setError((atual) => atual || promptBody.error || "Não foi possível carregar o prompt.");
     }
+    if (metricasResponse.ok) setMetricas(metricasBody);
 
     setIsLoadingData(false);
   }, [getHeaders, router]);
@@ -176,6 +191,11 @@ export default function AdminPage() {
         <div className="mt-6 grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
           <div className="space-y-6">
             <article className="rounded-3xl border border-white/10 bg-white p-6 shadow-xl shadow-black/20">
+              <p className="text-sm font-medium text-slate-500">Vendas Kiwify</p>
+              <p className="mt-2 text-3xl font-black text-emerald-600">{metricas ? moedaCentavos(metricas.revenueCents) : "…"}</p>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm"><p><strong>{metricas?.approvedSales ?? "…"}</strong><br /><span className="text-slate-500">vendas ativas</span></p><p><strong>{metricas?.newCustomers30Days ?? "…"}</strong><br /><span className="text-slate-500">novos em 30 dias</span></p></div>
+            </article>
+            <article className="rounded-3xl border border-white/10 bg-white p-6 shadow-xl shadow-black/20">
               <p className="text-sm font-medium text-slate-500">Usuários cadastrados</p>
               <p className="mt-2 text-4xl font-black text-slate-950">{isLoadingData || totalUsuarios === null ? "…" : totalUsuarios}</p>
               <p className="mt-2 text-sm text-slate-500">Total de contas com acesso ao planejador.</p>
@@ -199,7 +219,7 @@ export default function AdminPage() {
         </div>
 
         <article className="mt-6 rounded-3xl border border-white/10 bg-white p-6 shadow-xl shadow-black/20">
-          <h2 className="text-xl font-bold">Usuários cadastrados</h2>
+          <div className="flex items-baseline justify-between gap-3"><h2 className="text-xl font-bold">Usuários cadastrados</h2><span className="text-sm text-slate-500">{usuarios.length} exibidos</span></div>
           <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[36rem] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><tr><th className="pb-3 font-semibold">E-mail</th><th className="pb-3 font-semibold">Cadastro</th><th className="pb-3 font-semibold">Último acesso</th></tr></thead><tbody>{usuarios.map((usuario) => <tr key={usuario.id} className="border-b border-slate-100 last:border-0"><td className="py-3 font-medium text-slate-800">{usuario.email ?? "Sem e-mail"}</td><td className="py-3 text-slate-500">{formatarData(usuario.createdAt)}</td><td className="py-3 text-slate-500">{formatarData(usuario.lastSignInAt)}</td></tr>)}{!isLoadingData && usuarios.length === 0 && <tr><td colSpan={3} className="py-5 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>}</tbody></table></div>
         </article>
       </section>

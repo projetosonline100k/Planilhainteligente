@@ -47,6 +47,7 @@ export default function AdminPage() {
   const [isLoadingData, setIsLoadingData] = useState(false);
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
+  const [isImportingSales, setIsImportingSales] = useState(false);
 
   const getHeaders = useCallback(async (): Promise<HeadersInit | null> => {
     const { data } = await supabase.auth.getSession();
@@ -165,6 +166,30 @@ export default function AdminPage() {
     setStatus("Prompt de passagens atualizado com sucesso.");
   }
 
+  async function handleImportarVendas() {
+    if (!window.confirm("Importar todo o historico de vendas do produto Aplicativo Inteligente? Isso tambem criara ou atualizara os acessos dos compradores.")) return;
+
+    setStatus("");
+    setError("");
+    setIsImportingSales(true);
+    const headers = await getHeaders();
+    if (!headers) {
+      setIsImportingSales(false);
+      setError("Sessao expirada. Entre novamente.");
+      return;
+    }
+
+    const response = await fetch("/api/admin/import-kiwify-sales", { method: "POST", headers });
+    const result = (await response.json()) as { imported?: number; activated?: number; blocked?: number; error?: string };
+    setIsImportingSales(false);
+    if (!response.ok) {
+      setError(result.error ?? "Nao foi possivel importar as vendas.");
+      return;
+    }
+    setStatus(`${result.imported ?? 0} vendas importadas. ${result.activated ?? 0} acessos liberados e ${result.blocked ?? 0} bloqueados.`);
+    void carregarPainel();
+  }
+
   async function handleSair() {
     await supabase.auth.signOut();
     router.replace("/login");
@@ -194,6 +219,7 @@ export default function AdminPage() {
               <p className="text-sm font-medium text-slate-500">Vendas Kiwify</p>
               <p className="mt-2 text-3xl font-black text-emerald-600">{metricas ? moedaCentavos(metricas.revenueCents) : "…"}</p>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm"><p><strong>{metricas?.approvedSales ?? "…"}</strong><br /><span className="text-slate-500">vendas ativas</span></p><p><strong>{metricas?.newCustomers30Days ?? "…"}</strong><br /><span className="text-slate-500">novos em 30 dias</span></p></div>
+              <button type="button" onClick={handleImportarVendas} disabled={isImportingSales} className="mt-5 w-full rounded-full border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60">{isImportingSales ? "Importando historico…" : "Importar historico de vendas"}</button>
             </article>
             <article className="rounded-3xl border border-white/10 bg-white p-6 shadow-xl shadow-black/20">
               <p className="text-sm font-medium text-slate-500">Usuários cadastrados</p>

@@ -54,6 +54,7 @@ export default function AdminPage() {
   const [isSavingUser, setIsSavingUser] = useState(false);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
   const [isImportingSales, setIsImportingSales] = useState(false);
+  const [isUserPreviewOpen, setIsUserPreviewOpen] = useState(false);
 
   const getHeaders = useCallback(async (): Promise<HeadersInit | null> => {
     const { data } = await supabase.auth.getSession();
@@ -115,6 +116,22 @@ export default function AdminPage() {
       cancelado = true;
     };
   }, [carregarPainel, router]);
+
+  useEffect(() => {
+    if (!isUserPreviewOpen) return;
+
+    function fecharComEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsUserPreviewOpen(false);
+    }
+
+    document.addEventListener("keydown", fecharComEscape);
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", fecharComEscape);
+      document.body.style.overflow = "";
+    };
+  }, [isUserPreviewOpen]);
 
   async function handleCriarUsuario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -226,9 +243,12 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_78%_0%,rgba(14,165,233,0.34),transparent_34%),linear-gradient(180deg,#020617_0%,#020617_55%,#07111f_100%)] px-4 py-8 text-slate-900">
       <section className="mx-auto w-full max-w-5xl">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <Link href="/" className="text-sm font-medium text-cyan-200 hover:text-cyan-100">Início</Link>
-          <button type="button" onClick={handleSair} className="text-sm font-medium text-red-300 hover:text-red-200">Sair</button>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setIsUserPreviewOpen(true)} className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/20">Ver modo usuário</button>
+            <button type="button" onClick={handleSair} className="text-sm font-medium text-red-300 hover:text-red-200">Sair</button>
+          </div>
         </div>
 
         <header className="mt-8">
@@ -275,6 +295,37 @@ export default function AdminPage() {
           <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[36rem] text-left text-sm"><thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><tr><th className="pb-3 font-semibold">E-mail</th><th className="pb-3 font-semibold">Cadastro</th><th className="pb-3 font-semibold">Último acesso</th></tr></thead><tbody>{usuarios.map((usuario) => <tr key={usuario.id} className="border-b border-slate-100 last:border-0"><td className="py-3 font-medium text-slate-800">{usuario.email ?? "Sem e-mail"}</td><td className="py-3 text-slate-500">{formatarData(usuario.createdAt)}</td><td className="py-3 text-slate-500">{formatarData(usuario.lastSignInAt)}</td></tr>)}{!isLoadingData && usuarios.length === 0 && <tr><td colSpan={3} className="py-5 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>}</tbody></table></div>
         </article>
       </section>
+
+      {isUserPreviewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/90 px-4 py-6 backdrop-blur-sm sm:py-10"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="user-preview-title"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setIsUserPreviewOpen(false);
+          }}
+        >
+          <div className="w-full max-w-[430px]">
+            <div className="mb-4 flex items-center justify-between gap-3 text-white">
+              <div>
+                <h2 id="user-preview-title" className="text-lg font-bold">Visualização do usuário</h2>
+                <p className="text-xs text-slate-300">Tela simulada em 390 × 844 px</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Link href="/minha-viagem" target="_blank" className="rounded-full border border-white/20 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10">Nova aba</Link>
+                <button type="button" onClick={() => setIsUserPreviewOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-xl text-white transition hover:bg-white/20" aria-label="Fechar visualização">×</button>
+              </div>
+            </div>
+            <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-[2.5rem] border-[7px] border-slate-800 bg-black shadow-2xl shadow-black/60">
+              <div className="flex h-7 items-center justify-center bg-slate-950">
+                <span className="h-1.5 w-20 rounded-full bg-slate-700" />
+              </div>
+              <iframe src="/minha-viagem" title="Prévia do aplicativo no celular" className="block h-[calc(100dvh-11rem)] min-h-[560px] max-h-[844px] w-full bg-[#020617]" />
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -98,7 +98,7 @@ function NavRoteiro() {
     <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-none border-t border-white/10 bg-[#020617]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-3 shadow-[0_-16px_40px_rgba(0,0,0,0.35)] backdrop-blur sm:max-w-sm">
       <div className="grid grid-cols-5 items-end gap-1 text-[11px] font-semibold">
         <Link
-          href="/passagens"
+          href="/buscar-passagens"
           prefetch
           className="flex min-w-0 flex-col items-center gap-1 text-white/45"
         >

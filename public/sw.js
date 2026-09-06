@@ -38,3 +38,25 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(request).then((cached) => cached || caches.match("/")))
   );
 });
+
+self.addEventListener("push", (event) => {
+  let dados = {};
+  try { dados = event.data ? event.data.json() : {}; } catch { dados = { mensagem: event.data?.text() }; }
+  event.waitUntil(self.registration.showNotification(dados.titulo || "Vaiviajar", {
+    body: dados.mensagem || "Você recebeu uma nova atualização.",
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    data: { link: dados.link || "/" },
+    tag: dados.tag || "vaiviajar-alerta",
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const destino = new URL(event.notification.data?.link || "/", self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientes) => {
+    const cliente = clientes.find((item) => item.url === destino);
+    if (cliente) return cliente.focus();
+    return self.clients.openWindow(destino);
+  }));
+});

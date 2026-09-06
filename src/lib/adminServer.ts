@@ -31,3 +31,14 @@ export async function authorizeAdmin(request: Request) {
 
   return { user: data.user } as const;
 }
+
+export async function authorizeUser(request: Request) {
+  const authHeader = request.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) return { error: "Sessao nao encontrada.", status: 401 } as const;
+
+  const authClient = createClient(getEnv("NEXT_PUBLIC_SUPABASE_URL"), getEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"));
+  const { data, error } = await authClient.auth.getUser(token);
+  if (error || !data.user) return { error: "Sessao invalida.", status: 401 } as const;
+  return { user: data.user } as const;
+}

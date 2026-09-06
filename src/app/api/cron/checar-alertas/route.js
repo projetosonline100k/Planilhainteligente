@@ -21,7 +21,7 @@ async function menorPreco(alerta) {
 
 export async function GET(request) {
   if (!autorizado(request)) return Response.json({ error: "Não autorizado." }, { status: 401 });
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY; const privateKey = process.env.VAPID_PRIVATE_KEY; const subject = process.env.VAPID_SUBJECT;
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim(); const privateKey = process.env.VAPID_PRIVATE_KEY?.trim(); const subject = process.env.VAPID_SUBJECT?.trim();
   if (!publicKey || !privateKey || !subject || !process.env.SERPAPI_KEY) return Response.json({ error: "Variáveis do cron, SerpApi ou VAPID não configuradas." }, { status: 503 });
   webpush.setVapidDetails(subject, publicKey, privateKey);
   const supabase = createAdminClient(); const { data: alertas, error } = await supabase.from("alertas_preco").select("*").eq("ativo", true);

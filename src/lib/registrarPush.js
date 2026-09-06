@@ -14,7 +14,7 @@ export function precisaInstalarPWAnoIOS() {
 export async function ativarNotificacoesPush() {
   if (precisaInstalarPWAnoIOS()) throw new Error("No iPhone, adicione este app à Tela de Início pra receber notificações.");
   if (!("serviceWorker" in navigator) || (!("PushManager" in window))) throw new Error("Este navegador não oferece notificações push.");
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim();
   if (!publicKey) throw new Error("A chave pública de notificações não está configurada.");
 
   const permissao = await Notification.requestPermission();

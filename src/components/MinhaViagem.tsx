@@ -1311,7 +1311,7 @@ function NavInferior({
 
       <div className="grid grid-cols-5 items-end gap-1 px-3 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-4 text-[11px] font-semibold">
         <Link
-          href="/buscar-passagens"
+          href="/passagens"
           prefetch
           className="flex min-w-0 flex-col items-center gap-1 text-white/45 transition-colors hover:text-cyan-300"
         >

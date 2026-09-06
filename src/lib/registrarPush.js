@@ -11,6 +11,12 @@ export function precisaInstalarPWAnoIOS() {
   return ios && !instalado;
 }
 
+export async function notificacoesPushAtivas() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window) || Notification.permission !== "granted") return false;
+  const registro = await navigator.serviceWorker.getRegistration("/");
+  return Boolean(await registro?.pushManager.getSubscription());
+}
+
 export async function ativarNotificacoesPush() {
   if (precisaInstalarPWAnoIOS()) throw new Error("No iPhone, adicione este app à Tela de Início pra receber notificações.");
   if (!("serviceWorker" in navigator) || (!("PushManager" in window))) throw new Error("Este navegador não oferece notificações push.");

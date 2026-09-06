@@ -25,7 +25,10 @@ export async function GET(request) {
   if (!publicKey || !privateKey || !subject || !process.env.SERPAPI_KEY) return Response.json({ error: "Variáveis do cron, SerpApi ou VAPID não configuradas." }, { status: 503 });
   webpush.setVapidDetails(subject, publicKey, privateKey);
   const supabase = createAdminClient(); const { data: alertas, error } = await supabase.from("alertas_preco").select("*").eq("ativo", true);
-  if (error) return Response.json({ error: "Não foi possível carregar os alertas." }, { status: 500 });
+  if (error) {
+    console.error("Erro ao carregar alertas_preco:", { code: error.code, message: error.message, details: error.details, hint: error.hint });
+    return Response.json({ error: "Não foi possível carregar os alertas." }, { status: 500 });
+  }
   const resumo = { verificados: 0, disparados: 0, erros: 0 };
 
   for (const alerta of alertas || []) {

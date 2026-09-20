@@ -89,3 +89,102 @@ test("readPendingOfferPath retorna null quando não há oferta pendente", () => 
   const storage = fakeStorage();
   assert.equal(lib.readPendingOfferPath(storage), null);
 });
+
+test("clicar em 'Quero ter acesso' com checkout configurado: salva a oferta pendente e redireciona para a URL correta", async () => {
+  const storage = fakeStorage();
+  const calls = [];
+  const result = await lib.initiateKiwifyCheckout({
+    checkoutBaseUrl: "https://pay.kiwify.com.br/oManCiM",
+    offerId: OFFER_ID,
+    storage: {
+      setItem: (key, value) => { calls.push(`save:${key}`); storage.setItem(key, value); },
+    },
+    getEmail: async () => null,
+    redirect: (url) => calls.push(`redirect:${url}`),
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(storage.snapshot(), {
+    vaiviajar_pending_offer_id: OFFER_ID,
+    vaiviajar_pending_offer_path: `/oferta/${OFFER_ID}`,
+  });
+  assert.equal(calls.filter((c) => c.startsWith("redirect:")).length, 1);
+  assert.equal(calls.at(-1), `redirect:https://pay.kiwify.com.br/oManCiM?src=vaiviajar&s1=${OFFER_ID}`);
+  // a oferta pendente precisa estar salva ANTES do redirecionamento
+  assert.ok(calls.indexOf("save:vaiviajar_pending_offer_id") < calls.findIndex((c) => c.startsWith("redirect:")));
+});
+
+test("inclui o email na URL de checkout quando a sessão fornece um", async () => {
+  const calls = [];
+  await lib.initiateKiwifyCheckout({
+    checkoutBaseUrl: "https://pay.kiwify.com.br/oManCiM",
+    offerId: OFFER_ID,
+    storage: fakeStorage(),
+    getEmail: async () => "cliente@example.com",
+    redirect: (url) => calls.push(url),
+  });
+  assert.equal(calls[0], `https://pay.kiwify.com.br/oManCiM?src=vaiviajar&s1=${OFFER_ID}&email=cliente%40example.com`);
+});
+
+test("NEXT_PUBLIC_KIWIFY_CHECKOUT_URL ausente: mostra erro em vez de não fazer nada", async () => {
+  const calls = [];
+  const result = await lib.initiateKiwifyCheckout({
+    checkoutBaseUrl: undefined,
+    offerId: OFFER_ID,
+    storage: { setItem: () => calls.push("save") },
+    getEmail: async () => { throw new Error("must not be called"); },
+    redirect: (url) => calls.push(`redirect:${url}`),
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.message, lib.CHECKOUT_UNAVAILABLE_MESSAGE);
+  assert.deepEqual(calls, []);
+});
+
+test("NEXT_PUBLIC_KIWIFY_CHECKOUT_URL vazio também é tratado como ausente", async () => {
+  const result = await lib.initiateKiwifyCheckout({
+    checkoutBaseUrl: "",
+    offerId: OFFER_ID,
+    storage: fakeStorage(),
+    getEmail: async () => null,
+    redirect: () => { throw new Error("must not be called"); },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.message, lib.CHECKOUT_UNAVAILABLE_MESSAGE);
+});
+
+test("erro ao obter a sessão/e-mail não trava silenciosamente: retorna erro visível", async () => {
+  const result = await lib.initiateKiwifyCheckout({
+    checkoutBaseUrl: "https://pay.kiwify.com.br/oManCiM",
+    offerId: OFFER_ID,
+    storage: fakeStorage(),
+    getEmail: async () => { throw new Error("sessão indisponível"); },
+    redirect: () => { throw new Error("must not be called"); },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.message, lib.CHECKOUT_UNAVAILABLE_MESSAGE);
+});
+
+test("erro no redirecionamento não trava silenciosamente: retorna erro visível", async () => {
+  const result = await lib.initiateKiwifyCheckout({
+    checkoutBaseUrl: "https://pay.kiwify.com.br/oManCiM",
+    offerId: OFFER_ID,
+    storage: fakeStorage(),
+    getEmail: async () => null,
+    redirect: () => { throw new Error("bloqueado pelo navegador"); },
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.message, lib.CHECKOUT_UNAVAILABLE_MESSAGE);
+});
+
+test("falha ao salvar no localStorage (modo privado) não impede o redirecionamento", async () => {
+  const calls = [];
+  const result = await lib.initiateKiwifyCheckout({
+    checkoutBaseUrl: "https://pay.kiwify.com.br/oManCiM",
+    offerId: OFFER_ID,
+    storage: { setItem: () => { throw new Error("QuotaExceededError"); } },
+    getEmail: async () => null,
+    redirect: (url) => calls.push(url),
+  });
+  assert.equal(result.ok, true);
+  assert.equal(calls.length, 1);
+});

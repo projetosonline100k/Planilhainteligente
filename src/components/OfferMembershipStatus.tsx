@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { buildKiwifyCheckoutUrl, savePendingOffer } from "@/lib/kiwifyCheckout";
+import { initiateKiwifyCheckout } from "@/lib/kiwifyCheckout";
 
 type Status = "loading" | "anonymous" | "inactive" | "active" | "error";
 type BookingState = "idle" | "loading" | "error";
@@ -32,6 +32,7 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
   const [revalidateState, setRevalidateState] = useState<RevalidateState>("loading");
   const [revalidateData, setRevalidateData] = useState<RevalidateData | null>(null);
   const [revalidateAttempt, setRevalidateAttempt] = useState(0);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -146,18 +147,18 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
   }
 
   async function quererTerAcesso() {
-    const checkoutBase = process.env.NEXT_PUBLIC_KIWIFY_CHECKOUT_URL;
-    if (!checkoutBase) return;
-
-    try {
-      savePendingOffer(window.localStorage, offerId);
-    } catch {
-      // Armazenamento indisponível (modo privado, por exemplo): seguir para o checkout mesmo assim.
-    }
-
-    const { data: sessionData } = await supabase.auth.getSession();
-    const email = sessionData.session?.user?.email;
-    window.location.assign(buildKiwifyCheckoutUrl(checkoutBase, offerId, email));
+    setCheckoutMessage(null);
+    const result = await initiateKiwifyCheckout({
+      checkoutBaseUrl: process.env.NEXT_PUBLIC_KIWIFY_CHECKOUT_URL,
+      offerId,
+      storage: typeof window === "undefined" ? null : window.localStorage,
+      getEmail: async () => {
+        const { data: sessionData } = await supabase.auth.getSession();
+        return sessionData.session?.user?.email;
+      },
+      redirect: (url) => window.location.assign(url),
+    });
+    if (!result.ok) setCheckoutMessage(result.message);
   }
 
   function oportunidadeDisponivel(comLogin: boolean) {
@@ -175,6 +176,7 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
           {comLogin && <Link href="/login" className={botao}>Entrar</Link>}
           <button type="button" onClick={() => void quererTerAcesso()} className={botao}>Quero ter acesso</button>
         </div>
+        {checkoutMessage && <p className="mt-3 text-amber-200">{checkoutMessage}</p>}
       </>
     );
   }

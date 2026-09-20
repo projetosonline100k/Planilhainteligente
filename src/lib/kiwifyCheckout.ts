@@ -20,3 +20,41 @@ export function readPendingOfferPath(storage: Pick<Storage, "getItem">): string 
   if (!id || !UUID.test(id)) return null;
   return storage.getItem(PENDING_OFFER_PATH_KEY) || `/oferta/${id}`;
 }
+
+export const CHECKOUT_UNAVAILABLE_MESSAGE = "Não conseguimos abrir o checkout agora. Tente novamente.";
+
+export type InitiateCheckoutResult = { ok: true } | { ok: false; message: string };
+
+export async function initiateKiwifyCheckout({
+  checkoutBaseUrl,
+  offerId,
+  storage,
+  getEmail,
+  redirect,
+}: {
+  checkoutBaseUrl: string | null | undefined;
+  offerId: string;
+  storage: Pick<Storage, "setItem"> | null | undefined;
+  getEmail: () => Promise<string | null | undefined>;
+  redirect: (url: string) => void;
+}): Promise<InitiateCheckoutResult> {
+  if (!checkoutBaseUrl) {
+    return { ok: false, message: CHECKOUT_UNAVAILABLE_MESSAGE };
+  }
+
+  if (storage) {
+    try {
+      savePendingOffer(storage, offerId);
+    } catch {
+      // Armazenamento indisponível (modo privado, por exemplo): seguir para o checkout mesmo assim.
+    }
+  }
+
+  try {
+    const email = await getEmail();
+    redirect(buildKiwifyCheckoutUrl(checkoutBaseUrl, offerId, email));
+    return { ok: true };
+  } catch {
+    return { ok: false, message: CHECKOUT_UNAVAILABLE_MESSAGE };
+  }
+}

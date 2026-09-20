@@ -7,7 +7,7 @@ import { BuscaSalva, listarRecentes } from "@/lib/flightSearchStorage";
 function formatarData(data: string) { return new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${data}T12:00:00Z`)); }
 
 function NavegacaoPassagens() {
-  return <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full border-t border-white/10 bg-[#020617]/95 px-3 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-3 shadow-[0_-16px_40px_rgba(0,0,0,0.35)] backdrop-blur sm:max-w-sm"><div className="grid grid-cols-5 items-end gap-1 text-[11px] font-semibold"><Link href="/passagens" className="flex min-w-0 flex-col items-center gap-1 text-cyan-300"><span className="text-2xl leading-none">✈</span><span className="truncate">Passagens</span></Link><Link href="/cabine" className="flex min-w-0 flex-col items-center gap-1 text-white/45"><span className="text-2xl leading-none">▶</span><span className="truncate">Cabine</span></Link><Link href="/minha-viagem" className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-white text-3xl text-black shadow-lg" aria-label="Início">+</Link><Link href="/roteiro" className="flex min-w-0 flex-col items-center gap-1 text-white/45"><span className="text-2xl leading-none">🧭</span><span className="truncate">Roteiro</span></Link><Link href="/minha-viagem" className="flex min-w-0 flex-col items-center gap-1 text-white/45"><span className="text-2xl leading-none">🗺</span><span className="truncate">Destinos</span></Link></div></nav>;
+  return <nav className="hidden"><span /></nav>;
 }
 
 export default function Passagens() {

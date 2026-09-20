@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import PWARegister from "@/components/PWARegister";
 import CaixaNotificacoes from "@/components/CaixaNotificacoes";
+import AppNavigation from "@/components/AppNavigation";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -58,6 +59,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col overflow-x-hidden">
         {children}
         <CaixaNotificacoes />
+        <AppNavigation />
         <PWARegister />
         <PWAInstallPrompt />
       </body>

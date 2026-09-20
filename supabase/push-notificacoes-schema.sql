@@ -39,6 +39,7 @@ create table if not exists public.notificacoes (
 
 create index if not exists push_subscriptions_user_id_idx on public.push_subscriptions(user_id);
 create index if not exists alertas_preco_ativos_idx on public.alertas_preco(ativo, user_id);
+create index if not exists alertas_preco_busca_idx on public.alertas_preco(user_id, origin, destination, outbound_date);
 create index if not exists notificacoes_user_data_idx on public.notificacoes(user_id, created_at desc);
 create index if not exists notificacoes_alerta_idx on public.notificacoes(alerta_id, created_at desc);
 

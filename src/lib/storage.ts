@@ -116,7 +116,7 @@ export function concluirViagem(id: string): void {
 export function definirViagemAtiva(id: string): void {
   if (typeof window === "undefined") return;
   const store = carregarStore();
-  salvarStore({ ...store, viagemAtivaId: id });
+  salvarStore({ ...store, viagemAtivaId: store.viagens.some((viagem) => viagem.id === id) ? id : null });
 }
 
 export function apagarViagem(id: string): void {

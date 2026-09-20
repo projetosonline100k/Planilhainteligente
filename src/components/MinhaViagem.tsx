@@ -1296,7 +1296,7 @@ function NavInferior({
     <>
       {aberto && <div className="fixed inset-0 z-30" onClick={() => setAberto(false)} />}
 
-      <div className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-none border-t border-white/10 bg-[#020617]/95 shadow-[0_-16px_40px_rgba(0,0,0,0.35)] backdrop-blur supports-[backdrop-filter]:bg-[#020617]/85 sm:max-w-sm">
+      <div className="hidden">
 
       {aberto && (
         <div className="absolute bottom-full left-1/2 z-20 mb-3 w-56 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-lg">

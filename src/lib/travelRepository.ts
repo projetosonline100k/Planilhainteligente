@@ -174,8 +174,16 @@ function movimentacaoParaTransactionPayload(
 
 function definirViagemAtivaValida(viagens: ViagemItem[]): string | null {
   const ativaSalva = getViagemAtivaRemotaId();
-  const ativaExiste = viagens.some((viagem) => viagem.id === ativaSalva);
-  const viagemAtivaId = ativaExiste ? ativaSalva : viagens[0]?.id ?? null;
+  const hoje = new Date().toISOString().slice(0, 10);
+  const emAndamento = viagens.find((viagem) =>
+    !viagem.concluida && viagem.dados.dataIda && viagem.dados.dataIda <= hoje &&
+    (!viagem.dados.dataVolta || viagem.dados.dataVolta >= hoje)
+  );
+  const ativa = viagens.find((viagem) => viagem.id === ativaSalva && !viagem.concluida);
+  const futuras = viagens
+    .filter((viagem) => !viagem.concluida && viagem.dados.dataIda > hoje)
+    .sort((a, b) => a.dados.dataIda.localeCompare(b.dados.dataIda));
+  const viagemAtivaId = emAndamento?.id ?? ativa?.id ?? futuras[0]?.id ?? null;
 
   setViagemAtivaRemotaId(viagemAtivaId);
   return viagemAtivaId;
@@ -333,10 +341,17 @@ export async function concluirViagemRepository(id: string): Promise<ViagemStore>
 
   if (!userId) {
     concluirViagem(id);
+    const store = carregarStore();
+    const hoje = new Date().toISOString().slice(0, 10);
+    const proxima = store.viagens
+      .filter((viagem) => !viagem.concluida && viagem.dados.dataIda >= hoje)
+      .sort((a, b) => a.dados.dataIda.localeCompare(b.dados.dataIda))[0];
+    definirViagemAtiva(proxima?.id ?? "");
     return carregarStore();
   }
 
   setConclusaoRemota(id);
+  setViagemAtivaRemotaId(null);
   return carregarStoreRemoto(userId);
 }
 

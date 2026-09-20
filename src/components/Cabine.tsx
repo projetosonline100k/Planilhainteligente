@@ -209,7 +209,7 @@ export default function Cabine() {
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-none border-t border-white/10 bg-black/95 px-3 pb-[calc(env(safe-area-inset-bottom)+14px)] pt-3 backdrop-blur sm:max-w-sm">
+      <nav className="hidden">
         <div className="grid grid-cols-5 items-end gap-1 text-[11px] font-semibold">
           <Link href="/passagens" prefetch className="flex flex-col items-center gap-1 text-white/55">
             <span className="text-2xl leading-none">✈</span>

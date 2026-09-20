@@ -26,7 +26,7 @@ export default function Home() {
       }
 
       if (data.session) {
-        router.replace("/minha-viagem");
+        router.replace("/home");
         return;
       }
 

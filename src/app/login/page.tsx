@@ -1,19 +1,28 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import { isAdminEmail } from "@/lib/admin";
 import AppLoading from "@/components/AppLoading";
 import { supabase } from "@/lib/supabase";
+import { resolveReturnTo } from "@/lib/returnTo";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
+
+  function returnTo(): string | null {
+    return resolveReturnTo(
+      (key) => searchParams.get(key),
+      typeof window === "undefined" ? null : window.localStorage,
+    );
+  }
 
   useEffect(() => {
     let cancelado = false;
@@ -24,12 +33,18 @@ export default function LoginPage() {
 
       if (cancelado) return;
 
-      if (isAdminEmail(userEmail)) {
-        router.replace("/admin");
-        return;
-      }
-
       if (data.session) {
+        const destino = returnTo();
+        if (destino) {
+          router.replace(destino);
+          return;
+        }
+
+        if (isAdminEmail(userEmail)) {
+          router.replace("/admin");
+          return;
+        }
+
         router.replace("/minha-viagem");
         return;
       }
@@ -42,7 +57,8 @@ export default function LoginPage() {
     return () => {
       cancelado = true;
     };
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router, searchParams]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -69,13 +85,19 @@ export default function LoginPage() {
       return;
     }
 
+    setIsLoading(false);
+
+    const destino = returnTo();
+    if (destino) {
+      router.push(destino);
+      return;
+    }
+
     if (isAdminEmail(userEmail)) {
-      setIsLoading(false);
       router.push("/admin");
       return;
     }
 
-    setIsLoading(false);
     router.push("/minha-viagem");
   }
 
@@ -140,5 +162,13 @@ export default function LoginPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<AppLoading label="Verificando acesso" />}>
+      <LoginForm />
+    </Suspense>
   );
 }

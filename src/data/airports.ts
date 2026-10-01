@@ -27,3 +27,8 @@ export const aeroportos: Aeroporto[] = [
   ["CUN", "Cancún", "Cancún International", "México"], ["DXB", "Dubai", "Dubai International", "Emirados Árabes Unidos"],
   ["NRT", "Tóquio", "Narita", "Japão"], ["HND", "Tóquio", "Haneda", "Japão"],
 ].map(([codigo, cidade, nome, pais]) => ({ codigo, cidade, nome, pais }));
+
+export function codigoPorCidade(cidade: string): string | null {
+  const alvo = cidade.trim().toLowerCase();
+  return aeroportos.find((item) => item.cidade.toLowerCase() === alvo)?.codigo ?? null;
+}

@@ -16,7 +16,7 @@ export default function CaixaNotificacoes() {
     const aoFocar = () => { void supabase.auth.getSession().then(({ data: sessao }) => { if (document.visibilityState === "visible" && sessao.session?.access_token) void carregar(sessao.session.access_token); }); };
     document.addEventListener("visibilitychange", aoFocar); return () => { data.subscription.unsubscribe(); document.removeEventListener("visibilitychange", aoFocar); };
   }, []);
-  if (!token) return null;
+  if (!token || pathname.startsWith("/site")) return null;
   const naoLidas = notificacoes.filter((item) => !item.lida).length;
   async function abrir(item: Notificacao) { if (!item.lida) { await fetch("/api/notificacoes", { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id }) }); setNotificacoes((atuais) => atuais.map((atual) => atual.id === item.id ? { ...atual, lida: true } : atual)); } if (item.link) window.open(item.link, item.link.startsWith("http") ? "_blank" : "_self", "noopener,noreferrer"); }
   return <div className={`fixed top-[calc(env(safe-area-inset-top)+1rem)] z-50 ${pathname === "/minha-viagem" ? "right-20" : "right-4"}`}>

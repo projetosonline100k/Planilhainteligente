@@ -40,6 +40,7 @@ export default function PWAInstallPrompt() {
 
   useEffect(() => {
     if (estaInstalado()) return;
+    if (!isIOS() && !isAndroid()) return;
 
     const dispensado = sessionStorage.getItem("pwa-install-dismissed-session") === "1";
     if (dispensado) return;

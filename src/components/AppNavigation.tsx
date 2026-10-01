@@ -13,7 +13,7 @@ export default function AppNavigation() {
   const [aberto, setAberto] = useState(false);
   const [usuario, setUsuario] = useState<{ nome: string; avatar?: string } | null>(null);
   const inicio = useRef(0);
-  const esconder = ["/", "/login", "/cadastro", "/definir-senha"].includes(pathname) || pathname.startsWith("/admin");
+  const esconder = ["/", "/login", "/cadastro", "/definir-senha"].includes(pathname) || pathname.startsWith("/admin") || pathname.startsWith("/site");
 
   useEffect(() => { void supabase.auth.getSession().then(({ data }) => { const user = data.session?.user; if (!user) return; const meta = user.user_metadata || {}; setUsuario({ nome: meta.full_name || meta.name || user.email?.split("@")[0] || "Viajante", avatar: meta.avatar_url }); }); }, []);
   useEffect(() => { if (esconder) return; const down = (event: PointerEvent) => { inicio.current = event.clientX < 28 ? event.clientX : 0; }; const up = (event: PointerEvent) => { if (inicio.current && event.clientX - inicio.current > 65) setAberto(true); inicio.current = 0; }; window.addEventListener("pointerdown", down); window.addEventListener("pointerup", up); return () => { window.removeEventListener("pointerdown", down); window.removeEventListener("pointerup", up); }; }, [esconder]);

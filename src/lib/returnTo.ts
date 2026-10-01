@@ -1,9 +1,10 @@
 import { readPendingOfferPath } from "@/lib/kiwifyCheckout";
 
 const OFFER_RETURN_PATH = /^\/oferta\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SITE_RETURN_PATH = /^\/site(\/[a-z0-9-]+)*$/i;
 
 export function isValidReturnTo(value: string | null | undefined): value is string {
-  return typeof value === "string" && OFFER_RETURN_PATH.test(value);
+  return typeof value === "string" && (OFFER_RETURN_PATH.test(value) || SITE_RETURN_PATH.test(value));
 }
 
 export function resolveReturnTo(

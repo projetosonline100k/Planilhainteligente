@@ -28,6 +28,11 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
   const [membro, setMembro] = useState(false);
   const [naoLidas, setNaoLidas] = useState(0);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [rotaDoMenu, setRotaDoMenu] = useState(pathname);
+  if (rotaDoMenu !== pathname) {
+    setRotaDoMenu(pathname);
+    setMenuAberto(false);
+  }
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
@@ -81,9 +86,6 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
     };
   }, []);
 
-  useEffect(() => {
-    setMenuAberto(false);
-  }, [pathname]);
 
   useEffect(() => {
     if (checando || usuario) return;

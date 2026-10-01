@@ -71,7 +71,6 @@ function Oportunidades() {
 
   useEffect(() => {
     let disposed = false;
-    setState("loading");
     fetchOffers().then((result: OffersResult) => {
       if (disposed) return;
       if (result.state === "error") { setState("error"); return; }
@@ -89,7 +88,7 @@ function Oportunidades() {
     return (
       <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-6 text-center">
         <p className="text-sm font-semibold text-white/70">Não conseguimos carregar as oportunidades agora.</p>
-        <button type="button" onClick={() => setAttempt((value) => value + 1)} className="mt-3 rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-slate-950">
+        <button type="button" onClick={() => { setState("loading"); setAttempt((value) => value + 1); }} className="mt-3 rounded-full bg-cyan-300 px-5 py-2 text-sm font-black text-slate-950">
           Tentar novamente
         </button>
       </div>

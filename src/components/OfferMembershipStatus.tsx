@@ -7,13 +7,6 @@ import { initiateKiwifyCheckout } from "@/lib/kiwifyCheckout";
 
 type Status = "loading" | "anonymous" | "inactive" | "active" | "error";
 type BookingState = "idle" | "loading" | "error";
-type RevalidateState = "loading" | "available" | "expired" | "error";
-type RevalidateData = {
-  currentPrice: number;
-  typicalPrice: number | null;
-  savingsAmount: number | null;
-  savingsPercentage: number | null;
-};
 
 const BOOKING_ERROR_MESSAGES: Record<number, string> = {
   401: "Sua sessão expirou. Entre novamente para continuar.",
@@ -21,7 +14,6 @@ const BOOKING_ERROR_MESSAGES: Record<number, string> = {
   410: "Esta oportunidade não está mais disponível.",
 };
 const BOOKING_GENERIC_ERROR = "Não conseguimos abrir esta oferta agora. Tente novamente.";
-const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const botao = "mt-3 inline-flex rounded-full bg-cyan-300 px-5 py-2 font-bold text-slate-950 disabled:opacity-60";
 
 export default function OfferMembershipStatus({ offerId }: { offerId: string }) {
@@ -29,9 +21,6 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
   const [attempt, setAttempt] = useState(0);
   const [bookingState, setBookingState] = useState<BookingState>("idle");
   const [bookingMessage, setBookingMessage] = useState<string | null>(null);
-  const [revalidateState, setRevalidateState] = useState<RevalidateState>("loading");
-  const [revalidateData, setRevalidateData] = useState<RevalidateData | null>(null);
-  const [revalidateAttempt, setRevalidateAttempt] = useState(0);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,39 +67,6 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
     return () => { disposed = true; controller?.abort(); data.subscription.unsubscribe(); };
   }, [attempt]);
 
-  useEffect(() => {
-    if (status !== "anonymous" && status !== "inactive") return;
-    let disposed = false;
-
-    async function revalidate() {
-      setRevalidateState("loading");
-      setRevalidateData(null);
-      try {
-        const response = await fetch(`/api/offers/${offerId}/revalidate`, { cache: "no-store", signal: AbortSignal.timeout(20_000) });
-        const body = await response.json().catch(() => null);
-        if (disposed) return;
-        if (body?.status === "available" && typeof body.currentPrice === "number") {
-          setRevalidateData({
-            currentPrice: body.currentPrice,
-            typicalPrice: typeof body.typicalPrice === "number" ? body.typicalPrice : null,
-            savingsAmount: typeof body.savingsAmount === "number" ? body.savingsAmount : null,
-            savingsPercentage: typeof body.savingsPercentage === "number" ? body.savingsPercentage : null,
-          });
-          setRevalidateState("available");
-        } else if (body?.status === "expired") {
-          setRevalidateState("expired");
-        } else {
-          throw new Error("Resposta inválida");
-        }
-      } catch {
-        if (!disposed) setRevalidateState("error");
-      }
-    }
-
-    void revalidate();
-    return () => { disposed = true; };
-  }, [status, offerId, revalidateAttempt]);
-
   async function comprarPassagem() {
     setBookingState("loading");
     setBookingMessage(null);
@@ -141,11 +97,6 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
     }
   }
 
-  function retryRevalidate() {
-    setRevalidateState("loading");
-    setRevalidateAttempt((value) => value + 1);
-  }
-
   async function quererTerAcesso() {
     setCheckoutMessage(null);
     const result = await initiateKiwifyCheckout({
@@ -164,14 +115,8 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
   function oportunidadeDisponivel(comLogin: boolean) {
     return (
       <>
-        <p>Essa oportunidade ainda está disponível.</p>
-        {revalidateData && (
-          <>
-            <p className="mt-2 text-white/70">Hoje essa passagem está por {moeda.format(revalidateData.currentPrice)}.</p>
-            {revalidateData.typicalPrice != null && <p className="mt-1 text-white/70">Preço normal: {moeda.format(revalidateData.typicalPrice)}</p>}
-            {revalidateData.savingsAmount != null && <p className="mt-1 text-white/70">Você pode economizar {moeda.format(revalidateData.savingsAmount)} nessa viagem.</p>}
-          </>
-        )}
+        <p>Oportunidade encontrada pelo nosso radar.</p>
+        <p className="mt-2 text-white/70">O preço pode mudar a qualquer momento. Garanta seu acesso para ver os detalhes.</p>
         <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
           {comLogin && <Link href="/login" className={botao}>Entrar</Link>}
           <button type="button" onClick={() => void quererTerAcesso()} className={botao}>Quero ter acesso</button>
@@ -181,44 +126,11 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
     );
   }
 
-  function oportunidadeExpirada() {
-    return (
-      <>
-        <p>Essa oportunidade acabou.</p>
-        <p className="mt-2 text-white/70">Mas podemos avisar você quando aparecer outra promoção para este destino.</p>
-        <button type="button" className={botao}>Quero receber novas oportunidades</button>
-      </>
-    );
-  }
-
-  function erroRevalidacao() {
-    return (
-      <>
-        <p>Não conseguimos confirmar esta oportunidade agora.</p>
-        <button type="button" onClick={retryRevalidate} className={botao}>Tentar novamente</button>
-      </>
-    );
-  }
-
   return (
     <section aria-live="polite" aria-busy={status === "loading"} className="mt-7 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-4 text-center text-sm font-semibold text-cyan-100">
       {status === "loading" && <p>Verificando seu acesso...</p>}
-      {status === "anonymous" && (
-        <>
-          {revalidateState === "loading" && <p>Confirmando se esta oportunidade ainda está disponível...</p>}
-          {revalidateState === "available" && oportunidadeDisponivel(true)}
-          {revalidateState === "expired" && oportunidadeExpirada()}
-          {revalidateState === "error" && erroRevalidacao()}
-        </>
-      )}
-      {status === "inactive" && (
-        <>
-          {revalidateState === "loading" && <p>Confirmando se esta oportunidade ainda está disponível...</p>}
-          {revalidateState === "available" && oportunidadeDisponivel(false)}
-          {revalidateState === "expired" && oportunidadeExpirada()}
-          {revalidateState === "error" && erroRevalidacao()}
-        </>
-      )}
+      {status === "anonymous" && oportunidadeDisponivel(true)}
+      {status === "inactive" && oportunidadeDisponivel(false)}
       {status === "active" && (
         <>
           <p className="text-emerald-300">✓ Acesso de membro confirmado</p>

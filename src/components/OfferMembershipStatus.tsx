@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { initiateKiwifyCheckout } from "@/lib/kiwifyCheckout";
+import { PLANOS, type Plano } from "@/lib/planos";
 
 type Status = "loading" | "anonymous" | "inactive" | "active" | "error";
 type BookingState = "idle" | "loading" | "error";
@@ -14,7 +15,8 @@ const BOOKING_ERROR_MESSAGES: Record<number, string> = {
   410: "Esta oportunidade não está mais disponível.",
 };
 const BOOKING_GENERIC_ERROR = "Não conseguimos abrir esta oferta agora. Tente novamente.";
-const botao = "mt-3 inline-flex rounded-full bg-cyan-300 px-5 py-2 font-bold text-slate-950 disabled:opacity-60";
+const botao = "inline-flex w-full items-center justify-center rounded-full bg-blue-600 px-6 py-3 text-sm font-black text-white transition-colors hover:bg-blue-700 disabled:opacity-60 sm:w-auto";
+const botaoSecundario = "inline-flex w-full items-center justify-center rounded-full border border-slate-300 bg-white px-6 py-3 text-sm font-black text-slate-700 transition-colors hover:border-blue-300 hover:text-blue-700 sm:w-auto";
 
 export default function OfferMembershipStatus({ offerId }: { offerId: string }) {
   const [status, setStatus] = useState<Status>("loading");
@@ -22,6 +24,7 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
   const [bookingState, setBookingState] = useState<BookingState>("idle");
   const [bookingMessage, setBookingMessage] = useState<string | null>(null);
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [escolhendoPlano, setEscolhendoPlano] = useState(false);
 
   useEffect(() => {
     let disposed = false;
@@ -97,10 +100,10 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
     }
   }
 
-  async function quererTerAcesso() {
+  async function assinar(plano: Plano) {
     setCheckoutMessage(null);
     const result = await initiateKiwifyCheckout({
-      checkoutBaseUrl: process.env.NEXT_PUBLIC_KIWIFY_CHECKOUT_URL,
+      checkoutBaseUrl: plano.checkoutUrl,
       offerId,
       storage: typeof window === "undefined" ? null : window.localStorage,
       getEmail: async () => {
@@ -112,41 +115,98 @@ export default function OfferMembershipStatus({ offerId }: { offerId: string }) 
     if (!result.ok) setCheckoutMessage(result.message);
   }
 
-  function oportunidadeDisponivel(comLogin: boolean) {
+  function escolhaDePlano() {
     return (
       <>
-        <p>Oportunidade encontrada pelo nosso radar.</p>
-        <p className="mt-2 text-white/70">O preço pode mudar a qualquer momento. Garanta seu acesso para ver os detalhes.</p>
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-3">
-          {comLogin && <Link href="/login" className={botao}>Entrar</Link>}
-          <button type="button" onClick={() => void quererTerAcesso()} className={botao}>Quero ter acesso</button>
+        <p className="text-base font-black text-slate-900">Escolha seu plano</p>
+        <ul className="mt-5 space-y-4 text-left">
+          {PLANOS.map((plano) => (
+            <li
+              key={plano.id}
+              className={`relative rounded-2xl border bg-white p-4 ${plano.selo ? "border-2 border-blue-600 shadow-md shadow-blue-600/10" : "border-slate-200"}`}
+            >
+              {plano.selo && (
+                <span className="absolute -top-3 left-4 rounded-full bg-blue-600 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white">
+                  ⭐ {plano.selo}
+                </span>
+              )}
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-base font-black text-slate-900">{plano.nome}</p>
+                  <p className="text-xs font-bold text-blue-700">{plano.chamada}</p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xl font-black leading-none text-slate-900">{plano.preco}</p>
+                  <p className="mt-1 text-[11px] font-semibold text-slate-500">{plano.periodo}</p>
+                </div>
+              </div>
+              {(plano.equivalenteMensal || plano.economia) && (
+                <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs">
+                  {plano.equivalenteMensal && <p className="font-black text-emerald-700">Sai por {plano.equivalenteMensal}</p>}
+                  {plano.economia && <p className="font-semibold text-emerald-700">{plano.economia}</p>}
+                </div>
+              )}
+              <ul className="mt-3 space-y-1.5">
+                {plano.vantagens.map((vantagem) => (
+                  <li key={vantagem} className="flex gap-2 text-xs font-semibold leading-snug text-slate-600">
+                    <span aria-hidden="true">✅</span>
+                    {vantagem}
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={() => void assinar(plano)}
+                className={plano.selo ? `mt-3 ${botao} sm:w-full` : `mt-3 ${botaoSecundario} sm:w-full`}
+              >
+                Assinar {plano.nome}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {checkoutMessage && <p className="mt-3 text-amber-700">{checkoutMessage}</p>}
+        <button type="button" onClick={() => setEscolhendoPlano(false)} className="mt-4 text-xs font-bold text-slate-500 underline">
+          Voltar
+        </button>
+      </>
+    );
+  }
+
+  function oportunidadeDisponivel(comLogin: boolean) {
+    if (escolhendoPlano) return escolhaDePlano();
+    return (
+      <>
+        <p className="font-black text-slate-900">Oportunidade encontrada pelo nosso radar.</p>
+        <p className="mt-2 text-slate-500">O preço pode mudar a qualquer momento. Garanta seu acesso para ver os detalhes.</p>
+        <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-center sm:gap-3">
+          {comLogin && <Link href={`/login?returnTo=${encodeURIComponent(`/oferta/${offerId}`)}`} className={botaoSecundario}>Já sou membro</Link>}
+          <button type="button" onClick={() => setEscolhendoPlano(true)} className={botao}>Quero ter acesso</button>
         </div>
-        {checkoutMessage && <p className="mt-3 text-amber-200">{checkoutMessage}</p>}
       </>
     );
   }
 
   return (
-    <section aria-live="polite" aria-busy={status === "loading"} className="mt-7 rounded-xl border border-cyan-300/20 bg-cyan-300/10 px-4 py-4 text-center text-sm font-semibold text-cyan-100">
+    <section aria-live="polite" aria-busy={status === "loading"} className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-5 text-center text-sm font-semibold text-slate-700">
       {status === "loading" && <p>Verificando seu acesso...</p>}
       {status === "anonymous" && oportunidadeDisponivel(true)}
       {status === "inactive" && oportunidadeDisponivel(false)}
       {status === "active" && (
         <>
-          <p className="text-emerald-300">✓ Acesso de membro confirmado</p>
-          <p className="mt-2 text-white/70">Oferta exclusiva disponível para você.</p>
+          <p className="font-black text-emerald-600">✓ Acesso de membro confirmado</p>
+          <p className="mt-2 text-slate-500">Oferta exclusiva disponível para você.</p>
           <button
             type="button"
             onClick={comprarPassagem}
             disabled={bookingState === "loading"}
-            className={botao}
+            className={`mt-4 ${botao}`}
           >
             {bookingState === "loading" ? "Abrindo oferta..." : "Comprar passagem"}
           </button>
-          {bookingState === "error" && bookingMessage && <p className="mt-3 text-amber-200">{bookingMessage}</p>}
+          {bookingState === "error" && bookingMessage && <p className="mt-3 text-amber-700">{bookingMessage}</p>}
         </>
       )}
-      {status === "error" && <><p>Não conseguimos verificar seu acesso agora.</p><button type="button" onClick={() => { setStatus("loading"); setAttempt((value) => value + 1); }} className={botao}>Tentar novamente</button></>}
+      {status === "error" && <><p>Não conseguimos verificar seu acesso agora.</p><button type="button" onClick={() => { setStatus("loading"); setAttempt((value) => value + 1); }} className={`mt-4 ${botao}`}>Tentar novamente</button></>}
     </section>
   );
 }

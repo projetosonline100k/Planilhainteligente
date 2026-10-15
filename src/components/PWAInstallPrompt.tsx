@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type BeforeInstallPromptEvent = Event & {
@@ -34,6 +35,7 @@ function isAndroid(): boolean {
 }
 
 export default function PWAInstallPrompt() {
+  const pathname = usePathname();
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [mostrarIOS, setMostrarIOS] = useState(false);
   const [visivel, setVisivel] = useState(false);
@@ -89,7 +91,7 @@ export default function PWAInstallPrompt() {
     setVisivel(false);
   }
 
-  if (!visivel) return null;
+  if (!visivel || pathname.startsWith("/oferta")) return null;
 
   const textoAjuda = mostrarIOS
     ? "No iPhone, toque em Compartilhar e depois em Adicionar a Tela de Inicio."

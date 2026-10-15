@@ -4,7 +4,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const KIWIFY_API_URL = "https://public-api.kiwify.com/v1";
-const PRODUCT_NAME = process.env.KIWIFY_PRODUCT_NAME || "Aplicativo Inteligente";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://planilhainteligente.vercel.app";
 const PAGE_SIZE = 100;
 const IMPORT_START = new Date("2020-01-01T00:00:00.000Z");
@@ -38,8 +37,10 @@ function normalize(value?: string | null): string {
   return value?.trim().toLocaleLowerCase("pt-BR") ?? "";
 }
 
+const PRODUCT_NAMES = new Set([...(process.env.KIWIFY_PRODUCT_NAME || "").split(","), "Aplicativo Inteligente", "Aplicativo inteligente ( Mensal )"].map(normalize).filter(Boolean));
+
 function sameProduct(productName?: string): boolean {
-  return normalize(productName) === normalize(PRODUCT_NAME);
+  return PRODUCT_NAMES.has(normalize(productName));
 }
 
 function accessFromStatus(status?: string): AccessStatus {

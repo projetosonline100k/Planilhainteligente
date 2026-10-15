@@ -15,7 +15,6 @@ type KiwifyPayload = {
 };
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://planilhainteligente.vercel.app";
-const PRODUCT_NAME = process.env.KIWIFY_PRODUCT_NAME || "Aplicativo Inteligente";
 
 function sameSecret(received: string | null, expected: string): boolean {
   if (!received) return false;
@@ -27,6 +26,8 @@ function sameSecret(received: string | null, expected: string): boolean {
 function normalize(value?: string): string {
   return value?.trim().toLocaleLowerCase("pt-BR") ?? "";
 }
+
+const PRODUCT_NAMES = new Set([...(process.env.KIWIFY_PRODUCT_NAME || "").split(","), "Aplicativo Inteligente", "Aplicativo inteligente ( Mensal )"].map(normalize).filter(Boolean));
 
 function getPayload(body: unknown): KiwifyPayload {
   if (typeof body !== "object" || body === null) return {};
@@ -60,7 +61,7 @@ export async function POST(request: Request) {
     if (!orderId || !eventType || !email || !productName) {
       return Response.json({ error: "Evento Kiwify incompleto." }, { status: 400 });
     }
-    if (normalize(productName) !== normalize(PRODUCT_NAME)) {
+    if (!PRODUCT_NAMES.has(normalize(productName))) {
       return Response.json({ received: true, ignored: "Produto nao elegivel." }, { status: 202 });
     }
 

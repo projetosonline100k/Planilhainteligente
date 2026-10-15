@@ -75,6 +75,11 @@ for (const active of [false, true]) {
   });
 }
 
+test("compra pelos planos mensal/trimestral/anual (produto novo) libera acesso", async () => {
+  const member = membership([{ auth_user_id: "u", access_status: "active", product_name: "Aplicativo inteligente ( Mensal )" }]);
+  assert.equal(await member.isActiveMember("u"), true);
+});
+
 test("paginação encontra produto elegível depois de 100 vendas e para", async () => {
   const rows = Array.from({ length: 201 }, (_, index) => ({ auth_user_id: "u", access_status: "active", product_name: index === 100 ? "Aplicativo Inteligente" : "Outro" }));
   const member = membership(rows);

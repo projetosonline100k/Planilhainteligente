@@ -9,7 +9,7 @@ function normalize(value: string): string {
 
 export async function isActiveMember(userId: string): Promise<boolean> {
   if (!userId) return false;
-  const product = normalize(process.env.KIWIFY_PRODUCT_NAME || "Aplicativo Inteligente");
+  const products = new Set([...(process.env.KIWIFY_PRODUCT_NAME || "").split(","), "Aplicativo Inteligente", "Aplicativo inteligente ( Mensal )"].map(normalize).filter(Boolean));
   const client = createAdminClient();
 
   // A comparação local preserva trim/locale e não trata %, _ como curingas SQL.
@@ -23,7 +23,7 @@ export async function isActiveMember(userId: string): Promise<boolean> {
       .range(offset, offset + PAGE_SIZE - 1)
       .abortSignal(AbortSignal.timeout(10_000));
     if (error || !data) throw new Error("Verificação de acesso indisponível.");
-    if (data.some((sale) => normalize(sale.product_name) === product)) return true;
+    if (data.some((sale) => products.has(normalize(sale.product_name)))) return true;
     if (data.length < PAGE_SIZE) return false;
   }
 }

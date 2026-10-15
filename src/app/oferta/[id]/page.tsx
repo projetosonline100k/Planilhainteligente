@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPublicFlightOffer } from "@/lib/publicFlightOffer";
 import OfferMembershipStatus from "@/components/OfferMembershipStatus";
+import { AvisoOferta, CabecalhoOferta } from "@/components/OfertaLayout";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Oportunidade de viagem | Vaiviajar" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-const dataPtBr = new Intl.DateTimeFormat("pt-BR", { timeZone: "UTC" });
+const moeda = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 function formatarData(value: string | null): string {
   if (!value) return "Não informada";
   const date = new Date(`${value}T12:00:00Z`);
-  return Number.isNaN(date.getTime()) ? "Não informada" : dataPtBr.format(date);
+  return Number.isNaN(date.getTime()) ? "Não informada" : `${String(date.getUTCDate()).padStart(2, "0")} ${MESES[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
 function imagemPublica(value: string | null): string | null {
@@ -35,15 +37,7 @@ export default async function OfertaPage({ params }: { params: Promise<{ id: str
   try {
     offer = await getPublicFlightOffer(id);
   } catch {
-    return (
-      <main className="flex min-h-dvh items-center justify-center bg-slate-950 px-6 pb-32 text-white">
-        <div role="alert" className="max-w-sm rounded-3xl border border-white/10 bg-white/[0.05] p-7 text-center">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">Vaiviajar</p>
-          <h1 className="mt-3 text-xl font-bold">Não foi possível buscar esta oportunidade agora.</h1>
-          <p className="mt-3 text-sm text-white/60">Tente novamente em alguns instantes.</p>
-        </div>
-      </main>
-    );
+    return <AvisoOferta titulo="Não foi possível buscar esta oportunidade agora." texto="Tente novamente em alguns instantes." />;
   }
   if (!offer) notFound();
 
@@ -51,39 +45,88 @@ export default async function OfertaPage({ params }: { params: Promise<{ id: str
   const image = imagemPublica(offer.image_url);
 
   return (
-    <main className="min-h-dvh bg-[linear-gradient(160deg,#061b31,#020617_60%,#05192b)] px-4 pb-32 pt-[calc(env(safe-area-inset-top)+5rem)] text-white">
-      <article className="mx-auto max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-white/[0.05] shadow-xl shadow-black/20">
-        <div className="relative aspect-[4/3] bg-gradient-to-br from-cyan-900 to-slate-900">
-          {image ? (
-            <Image src={image} alt={`Destino: ${offer.destination_name}`} fill unoptimized sizes="(max-width: 544px) 100vw, 512px" className="object-cover" />
-          ) : (
-            <div className="flex h-full items-center justify-center text-6xl" role="img" aria-label="Destino de viagem">✈️</div>
-          )}
-          {offer.savings_percentage != null && (
-            <span className="absolute bottom-4 left-4 rounded-full bg-emerald-400 px-4 py-2 text-sm font-black text-slate-950 shadow-lg">
-              {offer.savings_percentage}% abaixo do normal
-            </span>
-          )}
+    <div className="min-h-dvh bg-slate-50 text-slate-900">
+      <CabecalhoOferta />
+
+      <main className="mx-auto max-w-6xl px-4 pb-16 pt-5 sm:px-6 lg:pt-10">
+        <nav className="mb-4 hidden text-sm text-slate-500 lg:block">
+          <Link href="/site/radar" className="hover:text-blue-700">Radar de ofertas</Link>
+          <span className="mx-2">/</span>
+          <span className="font-semibold text-slate-700">{offer.origin_name} → {offer.destination_name}</span>
+        </nav>
+
+        <div className="grid gap-5 lg:grid-cols-[1.25fr_1fr] lg:gap-8">
+          <section className="relative aspect-[4/3] overflow-hidden rounded-3xl bg-gradient-to-br from-blue-100 to-slate-200 shadow-sm lg:aspect-auto lg:min-h-[560px]">
+            {image ? (
+              <Image
+                src={image}
+                alt={`Destino: ${offer.destination_name}`}
+                fill
+                unoptimized
+                priority
+                sizes="(max-width: 1024px) 100vw, 640px"
+                className="object-cover"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-7xl" role="img" aria-label="Destino de viagem">✈️</div>
+            )}
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-transparent p-5 pt-16 sm:p-7">
+              {offer.savings_percentage != null && (
+                <span className="inline-flex rounded-full bg-emerald-400 px-3 py-1.5 text-sm font-black text-slate-950 shadow">
+                  {offer.savings_percentage}% abaixo do normal
+                </span>
+              )}
+              <p className="mt-3 text-sm font-semibold text-white/80">Saindo de {offer.origin_name}</p>
+              <h1 className="text-3xl font-black tracking-tight text-white sm:text-4xl">{offer.destination_name}</h1>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7 lg:self-start">
+            <p className="text-xs font-black uppercase tracking-widest text-blue-600">Oportunidade de viagem</p>
+            <h2 className="mt-2 text-xl font-black sm:text-2xl">
+              {offer.origin_name} <span className="text-blue-600">→</span> {offer.destination_name}
+            </h2>
+            <p className="mt-1 text-xs font-semibold text-slate-400">{offer.origin_code} → {offer.destination_code} · ida e volta</p>
+
+            {!active && (
+              <p role="status" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                Esta oportunidade não está mais ativa.
+              </p>
+            )}
+
+            <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+              <p className="text-4xl font-black tracking-tight text-slate-900">{moeda.format(offer.price)}</p>
+              <p className="text-sm text-slate-500">por pessoa, ida e volta</p>
+              {offer.typical_price != null && (
+                <p className="mt-3 text-sm text-slate-500">
+                  Preço normal: <span className="line-through">{moeda.format(offer.typical_price)}</span>
+                </p>
+              )}
+              {offer.savings_amount != null && (
+                <p className="mt-1 text-sm font-black text-emerald-600">Você economiza {moeda.format(offer.savings_amount)}</p>
+              )}
+            </div>
+
+            <dl className="mt-5 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border border-slate-200 p-3">
+                <dt className="text-xs font-semibold text-slate-400">Ida</dt>
+                <dd className="mt-1 text-sm font-black">{formatarData(offer.outbound_date)}</dd>
+              </div>
+              <div className="rounded-2xl border border-slate-200 p-3">
+                <dt className="text-xs font-semibold text-slate-400">Volta</dt>
+                <dd className="mt-1 text-sm font-black">{formatarData(offer.return_date)}</dd>
+              </div>
+            </dl>
+
+            <OfferMembershipStatus offerId={offer.id} />
+
+            <ul className="mt-6 space-y-2 border-t border-slate-100 pt-5 text-xs font-semibold text-slate-500">
+              <li>⚡ Ofertas reais encontradas pelo nosso radar</li>
+              <li>🔔 Preços promocionais costumam acabar rápido</li>
+            </ul>
+          </section>
         </div>
-        <div className="p-5 sm:p-7">
-          <p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">Oportunidade de viagem</p>
-          <h1 className="mt-3 text-2xl font-black">{offer.origin_name} <span className="text-cyan-300">→</span> {offer.destination_name}</h1>
-          <p className="mt-2 text-xs text-white/50">{offer.origin_code} → {offer.destination_code}</p>
-          <p className="mt-5 text-sm font-semibold text-white/70">Status: {active ? "Ativa" : "Inativa"}</p>
-          {!active && <p role="status" className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-amber-200">Esta oportunidade não está mais ativa.</p>}
-          <div className="mt-6">
-            <p className="text-4xl font-black tracking-tight text-white">{moeda.format(offer.price)}</p>
-            <p className="mt-1 text-sm text-white/60">ida e volta</p>
-            <p className="mt-4 text-sm text-white/60">Preço normal: {offer.typical_price == null ? "Não informado" : moeda.format(offer.typical_price)}</p>
-            {offer.savings_amount != null && <p className="mt-2 font-bold text-emerald-300">Você economiza {moeda.format(offer.savings_amount)}</p>}
-          </div>
-          <dl className="mt-6 grid grid-cols-2 gap-3 border-t border-white/10 pt-5">
-            <div><dt className="text-xs text-white/50">Ida</dt><dd className="mt-1 text-sm font-bold">{formatarData(offer.outbound_date)}</dd></div>
-            <div><dt className="text-xs text-white/50">Volta</dt><dd className="mt-1 text-sm font-bold">{formatarData(offer.return_date)}</dd></div>
-          </dl>
-          <OfferMembershipStatus offerId={offer.id} />
-        </div>
-      </article>
-    </main>
+      </main>
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/adminServer";
 import { carregarAgenteConfig } from "@/lib/agente/config";
-import { buscarOfertas } from "@/lib/agente/ferramentas";
+import { buscarOfertasConferidas } from "@/lib/agente/ferramentas";
 import { registrarSaida } from "@/lib/agente/executar";
 import { formatarOferta } from "@/lib/agente/ofertaTexto";
 import { Contato } from "@/types/agente";
@@ -42,8 +42,12 @@ export async function enviarOfertasProativas() {
     const ignorar = new Set((jaEnviadas ?? []).map((envio) => envio.offer_id));
     for (const destino of destinos) {
       if (restante <= 0) break;
-      const ofertas = await buscarOfertas({ destino, descontoMinimo: config.descontoMinimo }, 10);
-      const oferta = ofertas.find((item) => !ignorar.has(item.id));
+      const { ofertas } = await buscarOfertasConferidas(
+        { destino, descontoMinimo: config.descontoMinimo, excluirIds: [...ignorar] },
+        1,
+        config.descontoMinimo
+      );
+      const oferta = ofertas[0];
       if (!oferta) continue;
 
       const { error } = await db.from("whatsapp_envios_ofertas").insert({ contato_id: contato.id, offer_id: oferta.id });

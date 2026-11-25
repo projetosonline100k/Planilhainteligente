@@ -13,7 +13,7 @@ function load(file) {
   return exports;
 }
 
-const { formatarOferta, periodo, linkDaOferta, codigoCurto } = load("src/lib/agente/ofertaTexto.ts");
+const { formatarOferta, periodo, linkDaOferta, codigoCurto, formatarCartaoBusca, formatarComparativo } = load("src/lib/agente/ofertaTexto.ts");
 
 const oferta = {
   id: "abc",
@@ -68,4 +68,46 @@ test("link curto usa os 10 primeiros caracteres do id e só vale quando há link
 test("cartão com link curto fica com a última linha curta", () => {
   const ultima = formatarOferta(oferta, { linkCurto: true }).split("\n").pop();
   assert.equal(ultima, "https://vaiviajar.vercel.app/r/abc");
+});
+
+test("com voo conferido, o link é o do voo mais barato e não o da oferta do radar", () => {
+  const direto = linkDaOferta({ id: "abc", booking_url: "https://radar", link_voo: "https://voo-especifico" });
+  assert.equal(direto, "https://voo-especifico");
+  assert.equal(linkDaOferta({ id: "abcdef0123456789", booking_url: "https://radar", link_voo: "https://voo-especifico" }, true), "https://vaiviajar.vercel.app/r/abcdef0123");
+});
+
+test("cartão da busca ao vivo traz avaliação do preço, o voo e o link", () => {
+  const texto = formatarCartaoBusca({
+    origem: "Fortaleza", destino: "Belo Horizonte", ida: "2027-02-19", volta: "2027-02-25",
+    preco: 969, nivel: "low", faixa: [1100, 1900], voo: "Gol G3 2057 · 03:25 → 09:30 · 1 escala", link: "https://vaiviajar.vercel.app/r/abc",
+  });
+  assert.equal(
+    texto,
+    [
+      "Achei a melhor opção pra você ✈️",
+      "Fortaleza → Belo Horizonte",
+      "📅 19/02 a 25/02/2027",
+      "💰 R$ 969 ida e volta",
+      "📉 Preço baixo pra essa rota (o normal é R$ 1.100 a R$ 1.900)",
+      "🛫 Gol G3 2057 · 03:25 → 09:30 · 1 escala",
+      "🔗 Ver oferta",
+      "https://vaiviajar.vercel.app/r/abc",
+    ].join("\n")
+  );
+});
+
+test("preço acima do normal é avisado e sem avaliação a linha some", () => {
+  const base = { origem: "A", destino: "B", ida: "2027-02-19", volta: null, preco: 500, voo: null, link: "https://x" };
+  assert.ok(formatarCartaoBusca({ ...base, nivel: "high", faixa: [200, 400] }).includes("⚠️ Preço acima do normal"));
+  assert.ok(!formatarCartaoBusca({ ...base, nivel: null, faixa: null }).includes("normal"));
+  assert.ok(formatarCartaoBusca({ ...base, nivel: null, faixa: null }).includes("só ida"));
+});
+
+test("comparativo lista as companhias e só aparece com mais de uma", () => {
+  const texto = formatarComparativo([
+    { companhia: "Gol", preco: 633, escalas: 0 },
+    { companhia: "LATAM", preco: 816, escalas: 1 },
+  ]);
+  assert.equal(texto, "Comparei as companhias nessa data:\n✈️ Gol: R$ 633 (sem escalas)\n✈️ LATAM: R$ 816");
+  assert.equal(formatarComparativo([{ companhia: "Gol", preco: 633, escalas: 0 }]), "");
 });

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/adminServer";
 import { rodarAgenteClaude } from "@/lib/agente/claudeAssinatura";
 import { carregarAgenteConfig, registrarHeartbeat, WORKER_HEARTBEAT_KEY } from "@/lib/agente/config";
 import {
+  concluirEtapaDestino,
   ehPrimeiraConversa,
   processarMensagemRecebida,
   registrarErroAgente,
@@ -219,6 +220,7 @@ async function processar(contatoId: string, ids: string[]) {
       duracao_ms: Date.now() - inicio,
       cerebro: config.modeloClaude,
     });
+    await concluirEtapaDestino(contato);
     log(`   ← respondido em ${((Date.now() - inicio) / 1000).toFixed(1)}s${chamadas.length ? ` (${chamadas.map((c) => c.nome).join(", ")})` : ""}`);
   } catch (error) {
     const mensagem = error instanceof Error ? error.message : "Erro inesperado no Claude.";

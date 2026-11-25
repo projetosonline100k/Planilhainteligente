@@ -25,6 +25,9 @@ export type Contato = {
   nome: string | null;
   nome_preferido: string | null;
   cidade_origem: string | null;
+  estado: string | null;
+  aeroporto_origem: string | null;
+  destino_perguntado: boolean;
   user_id: string | null;
   modo: "agente" | "humano";
   bloqueado: boolean;

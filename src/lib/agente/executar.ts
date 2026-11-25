@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/adminServer";
 import { carregarAgenteConfig, podeUsarClaude, statusWorker } from "@/lib/agente/config";
+import { etapaDoContato, etapaInicial, instrucoesEtapa } from "@/lib/agente/etapas";
 import { executarFerramenta, ferramentasOpenAI } from "@/lib/agente/ferramentas";
 import { enviarTextoWaha, wahaConfigurado } from "@/lib/agente/waha";
 import { instrucoesPesquisaWeb } from "@/lib/agente/sitesConfiaveis";
@@ -14,7 +15,7 @@ const FORMATO_MENSAGENS = `## Formato das mensagens (WhatsApp)
 - Escreva para ler rápido no celular: no máximo umas 8 linhas, frases curtas, uma ideia por parágrafo, linha em branco entre os blocos.
 - Use um emoji no começo de cada informação importante (📍 lugar, 📅 datas, 💰 preço, 📉 desconto, ✅ confirmado, 🔗 link), nunca no meio de frases.
 - *Negrito* só no destino e no preço. Sem #, sem tabelas e sem listas com hífen: liste uma informação por linha.
-- Ofertas de passagem: copie o campo texto_pronto exatamente como veio, sem reescrever e sem encurtar o link. O link já é o direto da passagem, nunca use outro. Várias ofertas: um bloco por oferta, separados por linha em branco.
+- Passagens: use buscar_passagem, que pesquisa ao vivo e compara as companhias. Precisa de destino e data de ida (e a volta, se houver): se faltar, pergunte a data antes de pesquisar. Envie o texto_pronto exatamente como veio, sem reescrever e sem encurtar o link, e depois o comparativo_pronto, se houver. Nunca cite preço que não tenha vindo da pesquisa.
 - Termine com UMA pergunta curta só quando precisar de algo da pessoa.`;
 
 type ItemSaida = {
@@ -85,33 +86,25 @@ export async function montarInstrucoes(config: AgenteConfig, contato: Contato, p
     .eq("contato_id", contato.id);
 
   const hoje = new Intl.DateTimeFormat("pt-BR", { dateStyle: "full", timeZone: "America/Sao_Paulo" }).format(new Date());
-  const conheceNome = Boolean(contato.nome_preferido);
+  const etapa = etapaDoContato(contato);
   const contexto = [
     `Seu nome: ${config.nome}.`,
     `Hoje é ${hoje}.`,
-    conheceNome
-      ? `A pessoa se chama ${contato.nome_preferido}. Chame pelo nome de vez em quando, sem exagerar.`
-      : contato.nome
-        ? `Nome do perfil dela no WhatsApp: ${contato.nome} (pode não ser como ela quer ser chamada).`
-        : null,
-    contato.cidade_origem
-      ? `Ela costuma viajar saindo de ${contato.cidade_origem}. Use como origem quando ela não disser outra.`
-      : null,
-    !conheceNome || !contato.cidade_origem
-      ? "Você ainda não sabe " +
-        [!conheceNome ? "o nome dela" : null, !contato.cidade_origem ? "de onde ela costuma viajar" : null].filter(Boolean).join(" nem ") +
-        ". Depois de responder o que ela pediu, pergunte isso UMA vez, de forma curta. Quando ela responder, salve com salvar_perfil. Se ela ignorar a pergunta, não insista."
-      : null,
+    contato.nome_preferido ? `Ela se chama ${contato.nome_preferido}.` : contato.nome ? `Nome no perfil do WhatsApp dela: ${contato.nome} (pode não ser como ela quer ser chamada).` : null,
     viagens?.length
       ? `Viagens que essa pessoa já salvou: ${JSON.stringify(viagens)}`
       : "Essa pessoa ainda não salvou nenhuma viagem.",
-    primeiraConversa
-      ? `Esta é a primeira mensagem dessa pessoa. Comece com esta apresentação, igual ou muito parecida: """${config.boasVindas}""" e depois responda o que ela pediu, se pediu algo.`
-      : null,
   ].filter(Boolean);
 
-  const pesquisaWeb = config.ferramentas.pesquisa_web && config.cerebro === "claude_assinatura" ? `\n\n${instrucoesPesquisaWeb()}` : "";
-  return `${config.prompt}\n\n${FORMATO_MENSAGENS}${pesquisaWeb}\n\n## Contexto\n${contexto.join("\n")}`;
+  const pesquisaWeb =
+    config.ferramentas.pesquisa_web && config.cerebro === "claude_assinatura" && !etapaInicial(etapa) ? `\n\n${instrucoesPesquisaWeb()}` : "";
+  return `${config.prompt}\n\n${FORMATO_MENSAGENS}\n\n${instrucoesEtapa(etapa, contato, config, primeiraConversa)}${pesquisaWeb}\n\n## Contexto\n${contexto.join("\n")}`;
+}
+
+// A pergunta sobre o destino só é feita uma vez: depois da resposta nessa etapa, a conversa fica livre.
+export async function concluirEtapaDestino(contato: Contato): Promise<void> {
+  if (etapaDoContato(contato) !== "destino") return;
+  await createAdminClient().from("whatsapp_contatos").update({ destino_perguntado: true }).eq("id", contato.id);
 }
 
 export async function carregarHistorico(contatoId: string, limite: number): Promise<Array<{ role: "user" | "assistant"; content: string }>> {
@@ -137,7 +130,8 @@ export async function ehPrimeiraConversa(contatoId: string): Promise<boolean> {
     .from("whatsapp_mensagens")
     .select("id", { count: "exact", head: true })
     .eq("contato_id", contatoId)
-    .eq("direcao", "saida");
+    .eq("direcao", "saida")
+    .neq("autor", "sistema");
   return !count;
 }
 
@@ -146,7 +140,7 @@ export async function rodarAgenteOpenAI(config: AgenteConfig, contato: Contato, 
   if (!apiKey) throw new Error("OPENAI_API_KEY não configurada.");
 
   const instrucoes = await montarInstrucoes(config, contato, primeiraConversa);
-  const tools = ferramentasOpenAI(config);
+  const tools = ferramentasOpenAI(config, etapaDoContato(contato));
   const input: unknown[] = await carregarHistorico(contato.id, config.historico);
   const chamadas: ChamadaFerramenta[] = [];
 
@@ -245,6 +239,7 @@ export async function responderComOpenAI(config: AgenteConfig, contato: Contato,
     const { resposta, chamadas } = await rodarAgenteOpenAI(config, contato, primeiraConversa);
     const final = resposta || "Desculpa, me enrolei aqui. Pode repetir?";
     await registrarSaida(contato, final, "agente", { ferramentas: chamadas, duracao_ms: Date.now() - inicio, cerebro: "openai" });
+    await concluirEtapaDestino(contato);
     return { contato, resposta: final, ferramentas: chamadas };
   } catch (error) {
     const mensagem = error instanceof Error ? error.message : "Erro inesperado no agente.";
@@ -257,7 +252,7 @@ export async function processarMensagemRecebida(entrada: MensagemRecebida): Prom
   const inicio = Date.now();
   const db = createAdminClient();
   const { config } = await carregarAgenteConfig();
-  const { contato, novo } = await obterContato(entrada.telefone, entrada.nome ?? null, Boolean(entrada.simulado));
+  const { contato } = await obterContato(entrada.telefone, entrada.nome ?? null, Boolean(entrada.simulado));
 
   let texto = entrada.texto?.trim() ?? "";
   let audioSemTexto = false;
@@ -305,5 +300,5 @@ export async function processarMensagemRecebida(entrada: MensagemRecebida): Prom
     }
   }
 
-  return responderComOpenAI(config, contato, novo, inicio);
+  return responderComOpenAI(config, contato, await ehPrimeiraConversa(contato.id), inicio);
 }

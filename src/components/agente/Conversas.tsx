@@ -121,7 +121,7 @@ export default function Conversas({ contatoInicial }: { contatoInicial: string |
                 <button type="button" onClick={() => setSelecionado(null)} className="text-lg text-slate-500 lg:hidden" aria-label="Voltar">←</button>
                 <div>
                   <p className="font-semibold text-slate-900">{contato.nome_preferido ?? contato.nome ?? "Sem nome"}</p>
-                  <p className="text-xs text-slate-500">{formatarTelefone(contato.telefone)}{contato.cidade_origem ? ` · sai de ${contato.cidade_origem}` : ""} · {contato.total_mensagens} mensagens</p>
+                  <p className="text-xs text-slate-500">{formatarTelefone(contato.telefone)}{contato.cidade_origem ? ` · sai de ${contato.cidade_origem}${contato.aeroporto_origem ? ` (${contato.aeroporto_origem})` : ""}` : ""} · {contato.total_mensagens} mensagens</p>
                 </div>
               </div>
               <div className="flex gap-2">

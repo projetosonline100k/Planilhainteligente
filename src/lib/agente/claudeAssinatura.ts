@@ -5,6 +5,7 @@ import { createSdkMcpServer, query, tool } from "@anthropic-ai/claude-agent-sdk"
 import { z } from "zod";
 import { carregarHistorico, montarInstrucoes, RespostaAgente } from "@/lib/agente/executar";
 import { DefinicaoFerramenta, definicoesAtivas, executarFerramenta } from "@/lib/agente/ferramentas";
+import { etapaDoContato, etapaInicial } from "@/lib/agente/etapas";
 import { regrasWebFetch } from "@/lib/agente/sitesConfiaveis";
 import { AgenteConfig, ChamadaFerramenta, Contato } from "@/types/agente";
 
@@ -55,7 +56,8 @@ export async function rodarAgenteClaude(config: AgenteConfig, contato: Contato, 
   mkdirSync(PASTA_TRABALHO, { recursive: true });
 
   const chamadas: ChamadaFerramenta[] = [];
-  const definicoes = definicoesAtivas(config);
+  const etapa = etapaDoContato(contato);
+  const definicoes = definicoesAtivas(config, etapa);
   const servidor = createSdkMcpServer({
     name: SERVIDOR,
     version: "1.0.0",
@@ -74,10 +76,11 @@ export async function rodarAgenteClaude(config: AgenteConfig, contato: Contato, 
     ),
   });
 
-  const nativas = config.ferramentas.pesquisa_web ? ["WebSearch", "WebFetch"] : [];
-  const liberadas = config.ferramentas.pesquisa_web ? ["WebSearch", ...regrasWebFetch()] : [];
+  const comWeb = config.ferramentas.pesquisa_web && !etapaInicial(etapa);
+  const nativas = comWeb ? ["WebSearch", "WebFetch"] : [];
+  const liberadas = comWeb ? ["WebSearch", ...regrasWebFetch()] : [];
   const limite = new AbortController();
-  const prazo = setTimeout(() => limite.abort(), config.ferramentas.pesquisa_web ? 240_000 : 120_000);
+  const prazo = setTimeout(() => limite.abort(), comWeb ? 240_000 : 120_000);
   const instrucoes = await montarInstrucoes(config, contato, primeiraConversa);
   const historico = await carregarHistorico(contato.id, config.historico);
 
@@ -86,7 +89,7 @@ export async function rodarAgenteClaude(config: AgenteConfig, contato: Contato, 
     options: {
       systemPrompt: instrucoes,
       model: config.modeloClaude,
-      maxTurns: config.ferramentas.pesquisa_web ? 14 : 8,
+      maxTurns: comWeb ? 14 : 8,
       abortController: limite,
       tools: nativas,
       mcpServers: { [SERVIDOR]: servidor },

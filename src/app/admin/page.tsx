@@ -246,6 +246,7 @@ export default function AdminPage() {
         <div className="flex items-center justify-between gap-4">
           <Link href="/" className="text-sm font-medium text-cyan-200 hover:text-cyan-100">Início</Link>
           <div className="flex items-center gap-3">
+            <Link href="/admin/agente" className="rounded-full bg-emerald-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300">Agente WhatsApp</Link>
             <button type="button" onClick={() => setIsUserPreviewOpen(true)} className="rounded-full border border-cyan-300/30 bg-cyan-300/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-300/20">Ver modo usuário</button>
             <button type="button" onClick={handleSair} className="text-sm font-medium text-red-300 hover:text-red-200">Sair</button>
           </div>

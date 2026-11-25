@@ -3,6 +3,7 @@ import { carregarAgenteConfig, podeUsarClaude, statusWorker } from "@/lib/agente
 import { etapaDoContato, etapaInicial, instrucoesEtapa } from "@/lib/agente/etapas";
 import { executarFerramenta, ferramentasOpenAI } from "@/lib/agente/ferramentas";
 import { enviarTextoWaha, wahaConfigurado } from "@/lib/agente/waha";
+import { encerrarAvisosDaResposta } from "@/lib/agente/avisosDeEspera";
 import { instrucoesPesquisaWeb } from "@/lib/agente/sitesConfiaveis";
 import { transcreverAudio } from "@/lib/agente/transcricao";
 import { enviarTextoWhatsApp, whapiConfigurado } from "@/lib/agente/whapi";
@@ -247,6 +248,8 @@ export async function responderComOpenAI(config: AgenteConfig, contato: Contato,
     const mensagem = error instanceof Error ? error.message : "Erro inesperado no agente.";
     await registrarErroAgente(contato.id, mensagem, Date.now() - inicio, "openai");
     return { contato, resposta: null, ferramentas: [], erro: mensagem };
+  } finally {
+    encerrarAvisosDaResposta(contato.id);
   }
 }
 

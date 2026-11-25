@@ -13,7 +13,7 @@ function load(file) {
   return exports;
 }
 
-const { iniciarAvisosDeDemora, MARCOS_PADRAO } = load("src/lib/agente/avisosDeEspera.ts");
+const { iniciarAvisosDeDemora, MARCOS_PADRAO, garantirAvisosDaResposta, encerrarAvisosDaResposta } = load("src/lib/agente/avisosDeEspera.ts");
 const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 test("avisa de novo quando a pesquisa passa do tempo, em ordem", async () => {
@@ -45,4 +45,31 @@ test("os avisos reais explicam o motivo e dizem quanto falta", () => {
   assert.ok(MARCOS_PADRAO[0].aposMs === 30000);
   assert.ok(/Google Voos está lento/.test(MARCOS_PADRAO[0].texto) && /2 minutinhos/.test(MARCOS_PADRAO[0].texto));
   assert.ok(MARCOS_PADRAO[1].aposMs > MARCOS_PADRAO[0].aposMs);
+});
+
+test("duas pesquisas na mesma resposta mandam o aviso inicial uma vez só", async () => {
+  const enviados = [];
+  const enviar = async (texto) => enviados.push(texto);
+  await garantirAvisosDaResposta("contato-1", enviar, 0.001);
+  await garantirAvisosDaResposta("contato-1", enviar, 0.001);
+  assert.equal(enviados.filter((texto) => texto.includes("Já estou pesquisando")).length, 1);
+  encerrarAvisosDaResposta("contato-1");
+});
+
+test("ao encerrar a resposta, uma nova pesquisa volta a avisar do começo", async () => {
+  const enviados = [];
+  const enviar = async (texto) => enviados.push(texto);
+  await garantirAvisosDaResposta("contato-2", enviar, 1000);
+  encerrarAvisosDaResposta("contato-2");
+  await garantirAvisosDaResposta("contato-2", enviar, 1000);
+  encerrarAvisosDaResposta("contato-2");
+  assert.equal(enviados.filter((texto) => texto.includes("Já estou pesquisando")).length, 2);
+});
+
+test("encerrar a resposta cancela os avisos de demora que ainda não saíram", async () => {
+  const enviados = [];
+  await garantirAvisosDaResposta("contato-3", async (texto) => enviados.push(texto), 0.002);
+  encerrarAvisosDaResposta("contato-3");
+  await esperar(300);
+  assert.equal(enviados.length, 1);
 });

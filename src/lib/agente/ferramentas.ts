@@ -4,7 +4,7 @@ import { calcularStatusMeta } from "@/lib/agente/meta";
 import { descontoReal, ofertaAprovada } from "@/lib/agente/verificacaoRegras";
 import { verificarOferta } from "@/lib/agente/vooEspecifico";
 import { linkCurtoDisponivel } from "@/lib/agente/linkCurto";
-import { MARCOS_PADRAO, MENSAGEM_INICIO, iniciarAvisosDeDemora } from "@/lib/agente/avisosDeEspera";
+import { garantirAvisosDaResposta } from "@/lib/agente/avisosDeEspera";
 import { buscarPassagemAoVivo, guardarLinkCurto } from "@/lib/agente/buscaAoVivo";
 import { formatarCartaoBusca, formatarComparativo, linkDaOferta, urlBaseLinks } from "@/lib/agente/ofertaTexto";
 import { AgenteConfig, Contato, FerramentaAgente, ViagemDesejada } from "@/types/agente";
@@ -305,18 +305,10 @@ export async function executarFerramenta(nome: string, args: Record<string, unkn
         const { registrarSaida } = await import("@/lib/agente/executar");
         if (contato) await registrarSaida(contato as Contato, texto, "agente", { tipo: "aviso" });
       };
-      // O aviso inicial e os de demora só saem quando a pesquisa é de verdade (resultado guardado responde na hora).
-      let cancelarAvisos = () => {};
-      const aoPesquisar = async () => {
-        await enviarAviso(MENSAGEM_INICIO);
-        cancelarAvisos = iniciarAvisosDeDemora(enviarAviso, MARCOS_PADRAO, Number(process.env.AVISO_DEMORA_FATOR) || 1);
-      };
-      let resposta;
-      try {
-        resposta = await buscarPassagemAoVivo({ origem: origem as string, destino: destino as string, ida, volta }, { aoPesquisar });
-      } finally {
-        cancelarAvisos();
-      }
+      // O aviso inicial e os de demora só saem quando a pesquisa é de verdade (resultado guardado responde na hora)
+      // e uma vez só por resposta; quem encerra é o worker quando a resposta termina.
+      const aoPesquisar = () => garantirAvisosDaResposta(contatoId, enviarAviso, Number(process.env.AVISO_DEMORA_FATOR) || 1);
+      const resposta = await buscarPassagemAoVivo({ origem: origem as string, destino: destino as string, ida, volta }, { aoPesquisar });
       if (!resposta.ok) {
         return { ofertas: [], aviso: "Não consegui pesquisar as passagens agora. Diga isso com honestidade, não cite nenhum preço e ofereça tentar de novo mais tarde." };
       }

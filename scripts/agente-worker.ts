@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import { hostname } from "node:os";
 import { createAdminClient } from "@/lib/adminServer";
+import { encerrarAvisosDaResposta } from "@/lib/agente/avisosDeEspera";
 import { rodarAgenteClaude } from "@/lib/agente/claudeAssinatura";
 import { carregarAgenteConfig, registrarHeartbeat, WORKER_HEARTBEAT_KEY } from "@/lib/agente/config";
 import {
@@ -271,6 +272,7 @@ async function processar(contatoId: string, ids: string[]) {
       );
     }
   } finally {
+    encerrarAvisosDaResposta(contatoId);
     await concluir(ids);
     emProcessamento = [];
   }

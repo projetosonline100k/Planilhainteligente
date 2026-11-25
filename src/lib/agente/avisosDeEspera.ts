@@ -27,3 +27,27 @@ export function iniciarAvisosDeDemora(
   );
   return () => temporizadores.forEach((temporizador) => clearTimeout(temporizador));
 }
+
+const ativos = new Map<string, () => void>();
+const LIMITE_DOS_AVISOS_MS = 6 * 60_000;
+
+// Os avisos valem para a resposta inteira: se o agente fizer mais de uma pesquisa, o cliente não recebe tudo de novo.
+export async function garantirAvisosDaResposta(
+  chave: string,
+  enviar: (texto: string) => Promise<void>,
+  fator = 1
+): Promise<void> {
+  if (ativos.has(chave)) return;
+  const cancelar = iniciarAvisosDeDemora(enviar, MARCOS_PADRAO, fator);
+  const limite = setTimeout(() => encerrarAvisosDaResposta(chave), LIMITE_DOS_AVISOS_MS);
+  ativos.set(chave, () => {
+    cancelar();
+    clearTimeout(limite);
+  });
+  await enviar(MENSAGEM_INICIO);
+}
+
+export function encerrarAvisosDaResposta(chave: string): void {
+  ativos.get(chave)?.();
+  ativos.delete(chave);
+}

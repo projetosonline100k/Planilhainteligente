@@ -187,12 +187,19 @@ async function ofertasNoGrupo() {
 
 // ---------- Cérebro Claude: mensagens pendentes ----------
 
-async function liberarTravadas() {
-  await db
+let emProcessamento: string[] = [];
+let ultimaLiberacao = 0;
+
+// Mensagens que ficaram "em processamento" porque o worker caiu ou foi reiniciado no meio da resposta voltam para a fila.
+async function liberarTravadas(depoisDeMs = TRAVADA_MS) {
+  ultimaLiberacao = Date.now();
+  const { data } = await db
     .from("whatsapp_mensagens")
     .update({ processando_em: null })
     .eq("pendente", true)
-    .lt("processando_em", new Date(Date.now() - TRAVADA_MS).toISOString());
+    .lt("processando_em", new Date(Date.now() - depoisDeMs).toISOString())
+    .select("id");
+  if (data?.length) log(`↻ ${data.length} mensagem(ns) que tinham ficado presas voltaram para a fila`);
 }
 
 async function proximoContato(): Promise<{ contatoId: string; ids: string[] } | null> {
@@ -222,6 +229,7 @@ async function concluir(ids: string[]) {
 }
 
 async function processar(contatoId: string, ids: string[]) {
+  emProcessamento = ids;
   const inicio = Date.now();
   const { config } = await carregarAgenteConfig();
   const { data } = await db.from("whatsapp_contatos").select("*").eq("id", contatoId).single();
@@ -252,9 +260,19 @@ async function processar(contatoId: string, ids: string[]) {
     if (config.fallbackOpenAI) {
       log("   usando GPT como reserva");
       await responderComOpenAI(config, contato, primeiraConversa, inicio);
+    } else {
+      // Quem pediu algo nunca fica sem resposta: se a pesquisa falhou, avisa e propõe um caminho mais rápido.
+      const nome = contato.nome_preferido ? `, ${contato.nome_preferido}` : "";
+      await registrarSaida(
+        contato,
+        `Desculpa${nome}, a pesquisa demorou mais do que eu esperava e não consegui terminar agora 😕\n\nMe manda uma data de ida e uma de volta e eu pesquiso só essa, que é bem mais rápido!`,
+        "agente",
+        { cerebro: config.modeloClaude, duracao_ms: Date.now() - inicio }
+      );
     }
   } finally {
     await concluir(ids);
+    emProcessamento = [];
   }
 }
 
@@ -272,12 +290,14 @@ async function main() {
   if (config.cerebro !== "claude_assinatura") {
     log("Cérebro no painel: GPT. As respostas saem pelo GPT; troque para \"Claude da assinatura\" na aba Fluxo para usar o Claude.");
   }
-  await liberarTravadas();
+  // Ao ligar não há outro worker respondendo: o que estava em processamento há mais de 30s ficou preso.
+  await liberarTravadas(30_000);
   setInterval(() => void heartbeat().catch(() => {}), 15_000);
 
   while (rodando) {
     try {
       await heartbeat();
+      if (Date.now() - ultimaLiberacao > 60_000) await liberarTravadas();
       await ofertasNoGrupo().catch((error) => log("Erro no disparo do grupo:", error instanceof Error ? error.message : error));
       await enviarFila();
       const proximo = await proximoContato();
@@ -296,6 +316,10 @@ async function desligar() {
   if (!rodando) process.exit(0);
   rodando = false;
   log("Desligando…");
+  if (emProcessamento.length) {
+    await db.from("whatsapp_mensagens").update({ processando_em: null }).in("id", emProcessamento);
+    log("↻ a resposta em andamento volta para a fila e sai quando o worker ligar de novo");
+  }
   await db.from("app_settings").delete().eq("key", WORKER_HEARTBEAT_KEY);
   process.exit(0);
 }

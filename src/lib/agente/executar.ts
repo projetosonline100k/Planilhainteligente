@@ -16,6 +16,7 @@ const FORMATO_MENSAGENS = `## Formato das mensagens (WhatsApp)
 - Use um emoji no começo de cada informação importante (📍 lugar, 📅 datas, 💰 preço, 📉 desconto, ✅ confirmado, 🔗 link), nunca no meio de frases.
 - *Negrito* só no destino e no preço. Sem #, sem tabelas e sem listas com hífen: liste uma informação por linha.
 - Passagens: use buscar_passagem, que pesquisa ao vivo e compara as companhias. Precisa de destino e data de ida (e a volta, se houver): se faltar, pergunte a data antes de pesquisar. Envie o texto_pronto exatamente como veio, sem reescrever e sem encurtar o link, e depois o comparativo_pronto, se houver. Nunca cite preço que não tenha vindo da pesquisa.
+- Cada pesquisa de passagem leva de 10 a 60 segundos: faça NO MÁXIMO 2 buscar_passagem por resposta. Se a pessoa quer datas flexíveis ("qualquer dia", "entre dezembro e agosto"), pesquise 1 ou 2 datas representativas, diga quais usou e ofereça pesquisar outras.
 - Termine com UMA pergunta curta só quando precisar de algo da pessoa.`;
 
 type ItemSaida = {

@@ -4,6 +4,7 @@ import { calcularStatusMeta } from "@/lib/agente/meta";
 import { descontoReal, ofertaAprovada } from "@/lib/agente/verificacaoRegras";
 import { verificarOferta } from "@/lib/agente/vooEspecifico";
 import { linkCurtoDisponivel } from "@/lib/agente/linkCurto";
+import { MARCOS_PADRAO, MENSAGEM_INICIO, iniciarAvisosDeDemora } from "@/lib/agente/avisosDeEspera";
 import { buscarPassagemAoVivo, guardarLinkCurto } from "@/lib/agente/buscaAoVivo";
 import { formatarCartaoBusca, formatarComparativo, linkDaOferta, urlBaseLinks } from "@/lib/agente/ofertaTexto";
 import { AgenteConfig, Contato, FerramentaAgente, ViagemDesejada } from "@/types/agente";
@@ -299,12 +300,23 @@ export async function executarFerramenta(nome: string, args: Record<string, unkn
       if (!ida || ida <= hoje) return { erro: "A data de ida precisa ser futura. Pergunte a data para a pessoa." };
       if (volta && volta < ida) return { erro: "A volta não pode ser antes da ida." };
 
-      const avisarEspera = async () => {
+      const enviarAviso = async (texto: string) => {
         const { data: contato } = await db.from("whatsapp_contatos").select("*").eq("id", contatoId).single();
         const { registrarSaida } = await import("@/lib/agente/executar");
-        if (contato) await registrarSaida(contato as Contato, "⏳ Já estou pesquisando as passagens pra você. Leva cerca de 30 segundos!", "agente", { tipo: "aviso" });
+        if (contato) await registrarSaida(contato as Contato, texto, "agente", { tipo: "aviso" });
       };
-      const resposta = await buscarPassagemAoVivo({ origem: origem as string, destino: destino as string, ida, volta }, { aoPesquisar: avisarEspera });
+      // O aviso inicial e os de demora só saem quando a pesquisa é de verdade (resultado guardado responde na hora).
+      let cancelarAvisos = () => {};
+      const aoPesquisar = async () => {
+        await enviarAviso(MENSAGEM_INICIO);
+        cancelarAvisos = iniciarAvisosDeDemora(enviarAviso, MARCOS_PADRAO, Number(process.env.AVISO_DEMORA_FATOR) || 1);
+      };
+      let resposta;
+      try {
+        resposta = await buscarPassagemAoVivo({ origem: origem as string, destino: destino as string, ida, volta }, { aoPesquisar });
+      } finally {
+        cancelarAvisos();
+      }
       if (!resposta.ok) {
         return { ofertas: [], aviso: "Não consegui pesquisar as passagens agora. Diga isso com honestidade, não cite nenhum preço e ofereça tentar de novo mais tarde." };
       }

@@ -48,7 +48,8 @@ export async function buscarPassagemAoVivo(pedido: PedidoBusca, opcoes: { aoPesq
   try {
     await opcoes.aoPesquisar?.().catch(() => {});
     const resultado = await pesquisar(pedido);
-    await db.from("busca_passagens_cache").upsert({ chave, resultado, criado_em: new Date().toISOString() }, { onConflict: "chave" });
+    // Pesquisa sem voo nunca fica guardada: uma falha do Google não pode virar "não tem passagem" por horas.
+    if (resultado.melhor) await db.from("busca_passagens_cache").upsert({ chave, resultado, criado_em: new Date().toISOString() }, { onConflict: "chave" });
     return { ok: true, resultado, do_cache: false };
   } catch (error) {
     return { ok: false, motivo: error instanceof Error ? error.message : "Falha ao pesquisar as passagens." };

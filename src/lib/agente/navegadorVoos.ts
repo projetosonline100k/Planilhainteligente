@@ -27,6 +27,11 @@ let fila: Promise<unknown> = Promise.resolve();
 
 const esperar = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+let inicioDoLog = Date.now();
+function registrar(etapa: string) {
+  if (process.env.NAVEGADOR_LOG) console.log(`[navegador ${((Date.now() - inicioDoLog) / 1000).toFixed(1)}s] ${etapa}`);
+}
+
 async function textoDaPagina(page: Page): Promise<string> {
   return page.evaluate(() => document.body.innerText);
 }
@@ -53,6 +58,7 @@ async function aguardarVoos(page: Page): Promise<void> {
     if ((await lerLista(page)).length > 0) return;
     if (/Algo deu errado/i.test(texto) && recargas < 2) {
       recargas += 1;
+      registrar(`Google respondeu "Algo deu errado" ao abrir; clicando em Atualizar (${recargas})`);
       await page.getByRole("button", { name: "Atualizar" }).click().catch(() => {});
     }
     await esperar(1500);
@@ -60,12 +66,24 @@ async function aguardarVoos(page: Page): Promise<void> {
   throw new Error("O Google Voos não mostrou os voos agora.");
 }
 
-async function ordenarPorPreco(page: Page): Promise<void> {
+// Ordena por menor preço. O Google às vezes responde "Algo deu errado" depois do clique: o botão Atualizar resolve.
+// Devolve false se a lista não voltou, para quem chamou usar a lista sem ordenar.
+async function ordenarPorPreco(page: Page): Promise<boolean> {
   const aba = page.getByText("Menores preços").first();
-  if (await aba.isVisible().catch(() => false)) {
-    await aba.click().catch(() => {});
-    await esperar(1500);
+  if (!(await aba.isVisible().catch(() => false))) return true;
+  await aba.click().catch(() => {});
+
+  let recargas = 0;
+  for (let tentativa = 0; tentativa < 14; tentativa += 1) {
+    await esperar(1000);
+    if ((await lerLista(page)).length > 0) return true;
+    if (/Algo deu errado/i.test(await textoDaPagina(page)) && recargas < 2) {
+      recargas += 1;
+      registrar(`Google respondeu "Algo deu errado" ao ordenar; clicando em Atualizar (${recargas})`);
+      await page.getByRole("button", { name: "Atualizar" }).click().catch(() => {});
+    }
   }
+  return false;
 }
 
 async function esperarPagina(page: Page, condicao: () => Promise<boolean>, ms: number): Promise<boolean> {
@@ -81,8 +99,18 @@ type Conferido = { ida: LinhaVoo; volta: LinhaVoo | null; preco: number; link: s
 
 async function abrirBusca(page: Page, url: string): Promise<ItemDaLista[]> {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  registrar("página aberta");
   await aguardarVoos(page);
-  await ordenarPorPreco(page);
+  registrar("voos apareceram");
+  const ordenou = await ordenarPorPreco(page);
+  registrar(ordenou ? "ordenado por preço" : "ordenação falhou");
+  const lista = ordenou ? await lerLista(page) : [];
+  if (lista.length) return lista;
+
+  // A ordenação não funcionou: abre de novo e usa a lista como o Google mostra (os melhores voos).
+  registrar("reabrindo a busca sem ordenar");
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await aguardarVoos(page);
   return lerLista(page);
 }
 
@@ -110,6 +138,7 @@ async function conferirCandidato(page: Page, candidato: LinhaVoo, idas: ItemDaLi
 }
 
 async function executar(pedido: PedidoNavegador): Promise<ResultadoNavegador> {
+  inicioDoLog = Date.now();
   if (Date.now() < bloqueadoAte) throw new Error("O Google pediu uma verificação de segurança há pouco; vou esperar antes de tentar de novo.");
 
   const { chromium } = await import(/* webpackIgnore: true */ "playwright-core");
@@ -135,12 +164,20 @@ async function executar(pedido: PedidoNavegador): Promise<ResultadoNavegador> {
     const candidatos = escolherCandidatos(linhasDeIda, pedido.volta ? 3 : 1);
     const conferidos: Conferido[] = [];
     for (let posicao = 0; posicao < candidatos.length; posicao += 1) {
-      try {
-        if (posicao > 0) idas = await abrirBusca(page, busca);
-        const resultado = await conferirCandidato(page, candidatos[posicao], idas, Boolean(pedido.volta), busca);
-        if (resultado) conferidos.push(resultado);
-      } catch (erro) {
-        if (bloqueadoAte > Date.now()) throw erro;
+      // Cada companhia tem uma segunda chance: o Google falha de vez em quando e isso não pode mudar qual é a mais barata.
+      for (let tentativa = 0; tentativa < 2; tentativa += 1) {
+        try {
+          if (posicao > 0 || tentativa > 0) idas = await abrirBusca(page, busca);
+          const resultado = await conferirCandidato(page, candidatos[posicao], idas, Boolean(pedido.volta), busca);
+          if (resultado) {
+            conferidos.push(resultado);
+            break;
+          }
+          registrar(`${candidatos[posicao].companhia}: não consegui fechar o preço (tentativa ${tentativa + 1})`);
+        } catch (erro) {
+          if (bloqueadoAte > Date.now()) throw erro;
+          registrar(`${candidatos[posicao].companhia}: erro (tentativa ${tentativa + 1})`);
+        }
       }
     }
 
@@ -169,11 +206,23 @@ async function executar(pedido: PedidoNavegador): Promise<ResultadoNavegador> {
   }
 }
 
+async function comSegundaTentativa(pedido: PedidoNavegador): Promise<ResultadoNavegador> {
+  try {
+    const primeira = await executar(pedido);
+    if (primeira.melhor) return primeira;
+    registrar("primeira tentativa sem voos; tentando de novo");
+  } catch (erro) {
+    registrar(`primeira tentativa falhou: ${erro instanceof Error ? erro.message : erro}`);
+    if (bloqueadoAte > Date.now()) throw erro;
+  }
+  return executar(pedido);
+}
+
 // Uma pesquisa por vez: evita abrir vários Chromes e pedir demais ao Google.
 export function pesquisarNoNavegador(pedido: PedidoNavegador): Promise<ResultadoNavegador> {
   const execucao = fila.then(
-    () => executar(pedido),
-    () => executar(pedido)
+    () => comSegundaTentativa(pedido),
+    () => comSegundaTentativa(pedido)
   );
   fila = execucao.catch(() => undefined);
   return execucao;

@@ -60,7 +60,8 @@ export function lerLinhaVoo(texto: string): LinhaVoo | null {
 
   let posicao = 3;
   while (partes[posicao] && /^\+\d$/.test(partes[posicao])) posicao += 1;
-  const companhia = (partes[posicao] ?? "").replace(/Operado por.*$/i, "").trim();
+  // "KLMAir France" vem colado quando o voo tem mais de uma companhia.
+  const companhia = (partes[posicao] ?? "").replace(/Operado por.*$/i, "").replace(/([A-Z]{2,})([A-Z][a-z])/g, "$1, $2").trim();
   const duracao = partes[posicao + 1] ?? "";
   const rota = partes[posicao + 2] ?? "";
   const paradas = partes[posicao + 3] ?? "";

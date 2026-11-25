@@ -113,6 +113,7 @@ export async function carregarHistorico(contatoId: string, limite: number): Prom
     .select("autor, texto")
     .eq("contato_id", contatoId)
     .neq("autor", "sistema")
+    .neq("tipo", "ignorada")
     .order("created_at", { ascending: false })
     .limit(limite);
 

@@ -121,3 +121,12 @@ test("lê os voos internacionais reais do Google (chegada no dia seguinte, vári
   assert.equal(mista.companhia, "Gol, KLM, Air France");
   assert.equal(mista.escalas, 2);
 });
+
+test("separa companhias coladas e mantém nomes normais", () => {
+  const colada = g.lerLinhaVoo("20:59\n – \n19:10+1\nKLMAir France\n13h 11 min\nGRU–CDG\n1 parada\nAMS\n500 kg CO2e\nR$ 7.428\nida e volta");
+  assert.equal(colada.companhia, "KLM, Air France");
+  const normal = g.lerLinhaVoo("08:05\n – \n10:25\nLATAMOperado por Latam Airlines Brasil\n2h 20 min\nGRU–SSA\nSem escalas\nR$ 422\nsó ida");
+  assert.equal(normal.companhia, "LATAM");
+  const simples = g.lerLinhaVoo("06:15\n – \n07:35\nGol\n1h 20 min\nCGH–CNF\nSem escalas\nR$ 633\nida e volta");
+  assert.equal(simples.companhia, "Gol");
+});

@@ -111,3 +111,9 @@ test("comparativo lista as companhias e só aparece com mais de uma", () => {
   assert.equal(texto, "Comparei as companhias nessa data:\n✈️ Gol: R$ 633 (sem escalas)\n✈️ LATAM: R$ 816");
   assert.equal(formatarComparativo([{ companhia: "Gol", preco: 633, escalas: 0 }]), "");
 });
+
+test("sem faixa numérica, a avaliação do preço aparece só com a palavra", () => {
+  const base = { origem: "A", destino: "B", ida: "2027-02-19", volta: "2027-02-25", preco: 633, voo: null, link: "https://x", faixa: null };
+  assert.ok(formatarCartaoBusca({ ...base, nivel: "typical" }).includes("📊 Preço normal pra essa rota\n"));
+  assert.ok(formatarCartaoBusca({ ...base, nivel: "low" }).includes("📉 Preço baixo pra essa rota\n"));
+});

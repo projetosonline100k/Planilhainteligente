@@ -80,7 +80,7 @@ export async function rodarAgenteClaude(config: AgenteConfig, contato: Contato, 
   const nativas = comWeb ? ["WebSearch", "WebFetch"] : [];
   const liberadas = comWeb ? ["WebSearch", ...regrasWebFetch()] : [];
   const limite = new AbortController();
-  const prazo = setTimeout(() => limite.abort(), comWeb ? 240_000 : 120_000);
+  const prazo = setTimeout(() => limite.abort(), 300_000);
   const instrucoes = await montarInstrucoes(config, contato, primeiraConversa);
   const historico = await carregarHistorico(contato.id, config.historico);
 

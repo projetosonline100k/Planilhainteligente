@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "agente": "tsx --env-file=.env.local scripts/agente-worker.ts",
-    "whatsapp": "bash scripts/whatsapp-waha.sh"
+    "whatsapp": "bash scripts/whatsapp-waha.sh",
+    "grupo:disparar": "tsx --env-file=.env.local scripts/disparar-grupo.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
@@ -25,6 +26,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
+    "playwright-core": "^1.65.1",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5",

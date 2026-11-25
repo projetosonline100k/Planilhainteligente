@@ -11,6 +11,7 @@ import {
   registrarSaida,
   responderComOpenAI,
 } from "@/lib/agente/executar";
+import { dispararOfertasNoGrupo } from "@/lib/agente/disparoGrupo";
 import { cabecalhosMidiaWaha, enviarTextoWaha, statusSessaoWaha, telefoneDoJid, wahaConfigurado } from "@/lib/agente/waha";
 import { Contato } from "@/types/agente";
 
@@ -18,6 +19,9 @@ const INTERVALO_MS = 2_500;
 const HEARTBEAT_MS = 30_000;
 const TRAVADA_MS = 5 * 60_000;
 const PORTA_WEBHOOK = Number(process.env.WAHA_WEBHOOK_PORT || 3110);
+const VALIDADE_FILA_MS = 3 * 60 * 60_000;
+const INTERVALO_GRUPO_MS = 4_000;
+const CHECAR_GRUPO_MS = 60_000;
 
 const db = createAdminClient();
 let rodando = true;
@@ -140,6 +144,13 @@ function iniciarWebhook() {
 
 async function enviarFila() {
   if (!wahaConfigurado()) return;
+  // Se o Mac ficou desligado, mensagens muito antigas (ex.: ofertas de ontem) não saem atrasadas.
+  await db
+    .from("whatsapp_mensagens")
+    .update({ aguardando_envio: false, erro: "Expirada: o worker estava desligado." })
+    .eq("aguardando_envio", true)
+    .lt("created_at", new Date(Date.now() - VALIDADE_FILA_MS).toISOString());
+
   const { data } = await db
     .from("whatsapp_mensagens")
     .select("id, texto, whatsapp_contatos!inner(telefone)")
@@ -149,6 +160,7 @@ async function enviarFila() {
 
   for (const mensagem of data ?? []) {
     const { telefone } = mensagem.whatsapp_contatos as unknown as { telefone: string };
+    if (telefone.endsWith("@g.us")) await new Promise((resolve) => setTimeout(resolve, INTERVALO_GRUPO_MS));
     const envio = await enviarTextoWaha(telefone, mensagem.texto);
     await db
       .from("whatsapp_mensagens")
@@ -160,6 +172,17 @@ async function enviarFila() {
       .eq("id", mensagem.id);
     log(envio.ok ? `📤 enviada da fila para ${telefone}` : `✗ falha ao enviar para ${telefone}: ${envio.erro}`);
   }
+}
+
+// ---------- Ofertas no grupo (09h, 12h, 18h, 20h) ----------
+
+let ultimaChecagemGrupo = 0;
+
+async function ofertasNoGrupo() {
+  if (!wahaConfigurado() || Date.now() - ultimaChecagemGrupo < CHECAR_GRUPO_MS) return;
+  ultimaChecagemGrupo = Date.now();
+  const resultado = await dispararOfertasNoGrupo();
+  if (resultado.enviadas) log(`📣 ${resultado.enviadas} ofertas na fila do grupo (${resultado.motivo})`);
 }
 
 // ---------- Cérebro Claude: mensagens pendentes ----------
@@ -255,6 +278,7 @@ async function main() {
   while (rodando) {
     try {
       await heartbeat();
+      await ofertasNoGrupo().catch((error) => log("Erro no disparo do grupo:", error instanceof Error ? error.message : error));
       await enviarFila();
       const proximo = await proximoContato();
       if (proximo) {

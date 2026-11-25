@@ -6,7 +6,7 @@ import { verificarOferta } from "@/lib/agente/vooEspecifico";
 import { linkCurtoDisponivel } from "@/lib/agente/linkCurto";
 import { buscarPassagemAoVivo, guardarLinkCurto } from "@/lib/agente/buscaAoVivo";
 import { formatarCartaoBusca, formatarComparativo, linkDaOferta, urlBaseLinks } from "@/lib/agente/ofertaTexto";
-import { AgenteConfig, FerramentaAgente, ViagemDesejada } from "@/types/agente";
+import { AgenteConfig, Contato, FerramentaAgente, ViagemDesejada } from "@/types/agente";
 
 export type DefinicaoFerramenta = {
   grupo: FerramentaAgente | "perfil";
@@ -65,7 +65,7 @@ const DEFINICOES: DefinicaoFerramenta[] = [
     grupo: "ofertas",
     name: "buscar_passagem",
     description:
-      "Pesquisa AO VIVO no Google Voos o voo mais barato entre dois lugares nas datas pedidas e compara as principais companhias. Leva de 15 a 30 segundos. Só chame com destino e data de ida definidos; se faltar a data, pergunte antes. A origem usa o aeroporto de saída da pessoa se você não informar.",
+      "Pesquisa AO VIVO no Google Voos o voo mais barato entre dois lugares nas datas pedidas e compara as principais companhias. Leva de 20 a 60 segundos (o cliente é avisado que está pesquisando). Só chame com destino e data de ida definidos; se faltar a data, pergunte antes. A origem usa o aeroporto de saída da pessoa se você não informar.",
     parameters: {
       type: "object",
       properties: {
@@ -299,7 +299,12 @@ export async function executarFerramenta(nome: string, args: Record<string, unkn
       if (!ida || ida <= hoje) return { erro: "A data de ida precisa ser futura. Pergunte a data para a pessoa." };
       if (volta && volta < ida) return { erro: "A volta não pode ser antes da ida." };
 
-      const resposta = await buscarPassagemAoVivo({ origem: origem as string, destino: destino as string, ida, volta });
+      const avisarEspera = async () => {
+        const { data: contato } = await db.from("whatsapp_contatos").select("*").eq("id", contatoId).single();
+        const { registrarSaida } = await import("@/lib/agente/executar");
+        if (contato) await registrarSaida(contato as Contato, "⏳ Já estou pesquisando as passagens pra você. Leva cerca de 30 segundos!", "agente", { tipo: "aviso" });
+      };
+      const resposta = await buscarPassagemAoVivo({ origem: origem as string, destino: destino as string, ida, volta }, { aoPesquisar: avisarEspera });
       if (!resposta.ok) {
         return { ofertas: [], aviso: "Não consegui pesquisar as passagens agora. Diga isso com honestidade, não cite nenhum preço e ofereça tentar de novo mais tarde." };
       }

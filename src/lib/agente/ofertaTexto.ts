@@ -71,11 +71,11 @@ export type CartaoBusca = {
 };
 
 function avaliacao(nivel: CartaoBusca["nivel"], faixa: CartaoBusca["faixa"]): string | null {
-  if (!nivel || !faixa) return null;
-  const normal = `${reais(faixa[0])} a ${reais(faixa[1])}`;
-  if (nivel === "low") return `📉 Preço baixo pra essa rota (o normal é ${normal})`;
-  if (nivel === "high") return `⚠️ Preço acima do normal pra essa rota (${normal})`;
-  return `📊 Preço normal pra essa rota (${normal})`;
+  if (!nivel) return null;
+  const normal = faixa ? ` (${faixa[1] === faixa[0] ? reais(faixa[0]) : `${reais(faixa[0])} a ${reais(faixa[1])}`})` : "";
+  if (nivel === "low") return `📉 Preço baixo pra essa rota${faixa ? ` (o normal é ${reais(faixa[0])} a ${reais(faixa[1])})` : ""}`;
+  if (nivel === "high") return `⚠️ Preço acima do normal pra essa rota${normal}`;
+  return `📊 Preço normal pra essa rota${normal}`;
 }
 
 export function formatarCartaoBusca(cartao: CartaoBusca, opcoes: { cabecalho?: boolean } = {}): string {
